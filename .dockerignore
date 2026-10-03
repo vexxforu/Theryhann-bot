@@ -1,0 +1,8 @@
+node_modules
+session
+database/*.json
+tmp
+reports
+*.log
+*.zip
+.git
