@@ -119,9 +119,9 @@ npm install --no-audit --no-fund
 Masih error juga? Coba:
 
 ```bash
-rm -rf node_modules package-lock.json
+rm -rf node_modules
 npm cache clean --force
-npm install --no-audit --no-fund --legacy-peer-deps
+npm ci --no-audit --no-fund
 ```
 
 ---
@@ -712,8 +712,8 @@ pkg install -y ffmpeg libwebp
 
 ### ❌ `Cannot find module` / dependency rusak
 ```bash
-rm -rf node_modules package-lock.json
-npm install --no-audit --no-fund
+rm -rf node_modules
+npm ci --no-audit --no-fund
 ```
 
 ### ❌ Bot berhenti sendiri setelah beberapa menit

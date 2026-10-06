@@ -8,7 +8,7 @@
  *    B. .crm    → menangkap jawaban user yang sedang mengisi form CRM
  *    C. .bash   → mode shell Termux tanpa prefix (khusus owner)
  *    D. lib/serializer.js → perintah tanpa prefix + hormati mode shell
- *    E. lib/ai.js → claude-proxy (api.apinex.bond) jadi provider pertama
+ *    E. AI — tidak menyuntikkan token bawaan ke source code
  *    F. lib/pinterest.js → field board + hd untuk kartu .pin
  *
  *  Cara pakai (Termux HP 1):
@@ -151,10 +151,6 @@ const SER_BARU = [
   "  m.prefix = single || ''",
   '  m.noPrefix = !!tanpaPrefix'
 ].join('\n')
-
-const TARGET_AI = path.join(DISINI, 'lib', 'ai.js')
-const MARK_AI = 'v-aiclaude'
-const BLOK_AI_FUNGSI = "/* ---------- v-aiclaude: proxy Anthropic (konfigurasi bawaan) ----------\n * Base URL / token / model mengikuti config.ai.anthropic bila ada,\n * kalau tidak pakai bawaan (proxy api.apinex.bond milik owner). */\nfunction cfgClaude () {\n  const c = config.ai?.anthropic || {}\n  return {\n    base: String(c.baseUrl || process.env.ANTHROPIC_BASE_URL || 'https://api.apinex.bond').replace(/\\/+$/, ''),\n    token: String(c.authToken || c.token || process.env.ANTHROPIC_AUTH_TOKEN || 'sk-apx042836b625212e0f12b6a702a618c38167663489c5295f9').trim(),\n    model: String(c.sonnetModel || process.env.ANTHROPIC_DEFAULT_SONNET_MODEL || 'claude/sonnet-5').trim()\n  }\n}\nasync function claudeProxy (messages) {\n  const c = cfgClaude()\n  if (!c.token) throw new Error('token anthropic tidak ada')\n  const sys = messages.find(x => x.role === 'system')?.content\n  const chat = messages.filter(x => x.role !== 'system').map(x => ({ role: x.role, content: x.content }))\n  const res = await fetch(c.base + '/v1/messages', {\n    method: 'POST',\n    headers: { 'content-type': 'application/json', 'x-api-key': c.token, 'anthropic-version': '2023-06-01' },\n    body: JSON.stringify({ model: c.model, max_tokens: 1024, system: sys, messages: chat }),\n    signal: AbortSignal.timeout(30000)\n  })\n  const data = await res.json().catch(() => ({}))\n  if (!res.ok) throw new Error('HTTP ' + res.status + ' ' + String(data?.error?.message || '').slice(0, 120))\n  const teks = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\\n').trim()\n  if (!teks) throw new Error('respon kosong')\n  return teks\n}\n\n"
 
 const JARUM_BANNED = [
   '      /* ---------- BANNED ---------- */',
@@ -337,37 +333,8 @@ if (!fs.existsSync(TARGET_SER)) {
   }
 }
 
-/* ---- E. lib/ai.js: claude-proxy jadi provider pertama ---- */
-if (!fs.existsSync(TARGET_AI)) {
-  console.log('  \u26a0 [E] lib/ai.js tidak ditemukan \u2014 dilewati')
-} else {
-  let ai = fs.readFileSync(TARGET_AI, 'utf8')
-  if (ai.includes(MARK_AI)) {
-    console.log('  \u2022 [E] lib/ai.js sudah mengenal claude-proxy \u2014 dilewati')
-  } else {
-    const jFungsi = 'async function pollinations (messages'
-    const jProv = '  const providers = ['
-    if (!ai.includes(jFungsi) || !ai.includes(jProv)) {
-      console.log('  \u26a0 [E] pola lib/ai.js tidak dikenali \u2014 dilewati')
-    } else {
-      const aiBaru = ai
-        .replace(jFungsi, BLOK_AI_FUNGSI + jFungsi, 1)
-        .replace(jProv, jProv + '\n    ...(cfgClaude().token ? [{ name: \'claude-proxy\', run: () => claudeProxy(messages) }] : []),', 1)
-      const tmp = path.join(os.tmpdir(), 'ai-' + Date.now() + '.mjs')
-      fs.writeFileSync(tmp, aiBaru)
-      const cekAi = cekSintaks(tmp)
-      try { fs.unlinkSync(tmp) } catch {}
-      if (!cekAi.ok) {
-        console.log('  \u274c [E] hasil tambalan lib/ai.js gagal cek sintaks \u2014 dilewati')
-      } else {
-        try { fs.writeFileSync(TARGET_AI + '.bak-patch', ai) } catch {}
-        fs.writeFileSync(TARGET_AI, aiBaru)
-        dikerjakan.push('[E] lib/ai.js: claude-proxy jadi provider pertama')
-        console.log('  \u2022 [E] lib/ai.js: claude-proxy dipasang di depan rantai provider')
-      }
-    }
-  }
-}
+/* ---- E. kredensial AI tetap opsional; patch ini tidak menanam token ---- */
+console.log('  • [E] AI: token/provider tetap dikonfigurasi secara privat — tidak ada kredensial bawaan yang ditambahkan')
 
 /* ============================================================
  * [F] lib/pinterest.js — field board & hd (kartu .pin ala video)

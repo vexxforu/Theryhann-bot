@@ -119,6 +119,15 @@ console.log('\n[B] Pratinjau gambar menu')
     }
     await setMenuImg.run(m)
     check('.setmenuimg URL menyimpan setelan dan mengirim pratinjau link', getSettings().menuImage === m.q && sent[0]?.content?.contextInfo?.externalAdReply?.thumbnailUrl === m.q)
+    const urlBaru = 'https://cdn.example.test/menu-via-url-command.jpg'
+    m.q = `url ${urlBaru}`
+    await setMenuImg.run(m)
+    const previewBaru = sent.at(-1)?.content?.contextInfo?.externalAdReply
+    check('.setmenuimg url <link> menyimpan URL tanpa kata url dan membuat pratinjau', getSettings().menuImage === urlBaru && previewBaru?.thumbnailUrl === urlBaru && previewBaru?.sourceUrl === urlBaru)
+    m.q = 'url bukan-link'
+    const countSebelumInvalid = sent.length
+    await setMenuImg.run(m)
+    check('.setmenuimg url menolak URL tidak valid tanpa mengubah setting', getSettings().menuImage === urlBaru && /tidak valid/.test(reply) && sent.length === countSebelumInvalid)
     m.q = 'none'
     await setMenuImg.run(m)
     check('.setmenuimg none benar-benar mematikan gambar menu', getSettings().menuImage === 'none' && /dimatikan/.test(reply))

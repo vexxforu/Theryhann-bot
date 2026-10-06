@@ -1,5 +1,4 @@
 node_modules/
-package-lock.json
 session/
 tmp/
 database/*.json
@@ -7,3 +6,7 @@ database/*.json
 .DS_Store
 npm-debug.log*
 reports/
+*.zip
+.env
+.env.*
+!.env.example

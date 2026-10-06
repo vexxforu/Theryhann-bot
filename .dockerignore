@@ -5,4 +5,9 @@ tmp
 reports
 *.log
 *.zip
+.env
+.env.*
+!.env.example
 .git
+.DS_Store
+npm-debug.log*

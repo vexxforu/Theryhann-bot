@@ -4,8 +4,9 @@
  */
 import { AIRich } from '@rexxhayanasi/elaina-baileys'
 import { config } from '../config.js'
-import { aiChat, aiImage, aiTTS, ttsVoices, cleanAIText } from '../lib/ai.js'
-import { getMemory, pushMemory, clearMemory, loadDB, saveDB, getSettings, setSetting } from '../lib/database.js'
+import { aiChat, aiImage, aiTTS, ttsVoices, cleanAIText, activePersona, aiProviderAktif } from '../lib/ai.js'
+import { getMemory, pushMemory, clearMemory, loadDB, saveDB, getSettings } from '../lib/database.js'
+import { sendAIReactionSticker } from '../lib/aireactions.js'
 import { truncate } from '../lib/functions.js'
 
 /* ================= CHAT AI ================= */
@@ -28,36 +29,31 @@ export default {
       })
 
     const key = m.isGroup ? m.jid : (m.senderKey || m.sender)
-    const question = m.q || m.quoted?.text || ''
-    const quotedText = m.quoted?.text && m.q ? `\n\nPesan yang di-reply:\n"""${truncate(m.quoted.text, 800)}"""` : ''
+    const question = String(m.q || m.quoted?.text || '').trim()
+    const quoted = String(m.quoted?.text || '').trim()
+    const prompt = quoted
+      ? (m.q ? `Konteks pesan yang dibalas: \"${truncate(quoted, 800)}\"\nPesan terbaru: ${m.q}` : `Tanggapi pesan ini dengan wajar: \"${truncate(quoted, 800)}\"`)
+      : question
 
     await m.typing()
     const history = getMemory(key)
     let answer
     try {
-      answer = await aiChat(question + quotedText, history, {
-        system: `${config.ai.persona}\n\nNama lawan bicara: ${m.pushName || 'user'}${m.isGroup ? `\nGrup: ${m.groupName}` : ''}.\nFormat jawaban: markdown WhatsApp (*tebal*, _miring_, \`\`\`kode\`\`\`). Ringkas & to the point.`
+      answer = await aiChat(prompt, history, {
+        system: `${activePersona()}\n\nKonteks lawan bicara: ${m.pushName || 'user'}${m.isGroup ? `, di grup ${m.groupName}` : ''}. Balas sebagai percakapan WhatsApp yang natural; format seperlunya saja.`
       })
     } catch (e) {
-      return m.reply(`❌ AI error: \`${truncate(e.message, 300)}\`\n\nCoba lagi beberapa saat, atau ganti provider di config.js`)
+      return m.reply(`Maaf, AI lagi tidak bisa menjawab sekarang. ${truncate(e.message, 240)}\nCoba lagi sebentar ya.`)
     }
 
     answer = cleanAIText(answer)
-    pushMemory(key, 'user', question)
+    pushMemory(key, 'user', prompt)
     pushMemory(key, 'assistant', answer)
 
-    // jawaban pendek -> tampil sebagai AI Rich message (lebih menarik)
-    if (answer.length < 1200 && !answer.includes('```')) {
-      try {
-        return await m.sendAIRich({
-          title: '🤖 THERYHANN! AI',
-          text: answer,
-          tip: `Memory: ${getMemory(key).length / 2} percakapan tersimpan`,
-          suggest: ['jelasin lebih detail', 'buatkan contohnya', `${config.display.prefix}delmem`]
-        })
-      } catch {}
-    }
-    return await m.reply(answer)
+    // Teks biasa lebih kompatibel daripada AI Rich untuk percakapan dan reply.
+    const sent = await m.reply(answer)
+    await sendAIReactionSticker(m, question).catch(() => false)
+    return sent
   }
 }
 
@@ -210,8 +206,9 @@ export const persona = {
     const key = m.isGroup ? m.jid : (m.senderKey || m.sender)
     const text = `*🤖 INFO AI — ${config.bot.name}*
 
-▸ *Provider utama:* Groq (${config.ai.groqModel}) ${(await import('../lib/ai.js')).aiKeys().groq ? '✅ key terpasang' : '❌ belum ada key → .setaikey groq <key>'}
-▸ *Cadangan:* OpenRouter → Gemini → Pollinations (${config.ai.model})
+▸ *Provider aktif:* ${aiProviderAktif()}
+▸ *Cadangan:* Groq → OpenRouter → Gemini → Pollinations
+▸ Untuk AI lebih stabil, owner bisa mengisi ${config.display.prefix}setaikey groq <key>.
 ▸ *Auto Reply:* ${m.isGroup ? (m.groupSet?.autoai ? '✅ ON' : '❌ OFF') : getSettings().autoReplyAI ? '✅ ON' : '❌ OFF'}
 ▸ *Memory chat ini:* ${Math.floor(getMemory(key).length / 2)} percakapan
 ▸ *Timeout:* ${config.ai.timeout / 1000}s

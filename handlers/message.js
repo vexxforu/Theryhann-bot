@@ -35,7 +35,9 @@ import {
   sendAIRich,
   resolveMenuMode
 } from '../lib/interactive.js'
-import { aiChat, aiImage, aiTTS, activePersona } from '../lib/ai.js'
+import { aiChat, aiImage, aiTTS, activePersona, cleanAIText } from '../lib/ai.js'
+import { findCommandSuggestions, isReplyToBotMessage, typoReplyText } from '../lib/aihelpers.js'
+import { sendAIReactionSticker } from '../lib/aireactions.js'
 import { checkGameAnswer } from '../features/games.js'
 import { checkLabAnswer } from '../features/gameslab.js'
 import { tambahWarn, resetWarn } from '../features/grouplab.js'
@@ -417,6 +419,12 @@ export async function messageHandler (messages, type) {
         }
       }
 
+      /* ---------- AI SAAT USER MEMBALAS PESAN BOT ---------- */
+      // Reply ke pesan bot selalu dianggap follow-up AI, tanpa perlu mengaktifkan auto-AI global.
+      if (!isAction && !m.isCommand && body && !m.isBot && isReplyToBotMessage(m)) {
+        return await aiAutoReply(m, body)
+      }
+
       /* ---------- AI AUTO REPLY ---------- */
       const autoAI = m.isGroup ? !!m.groupSet?.autoai : !!settings.autoReplyAI || !!m.userDB.autoai
       if (autoAI && body && !m.isBot) return await aiAutoReply(m, body)
@@ -435,8 +443,14 @@ export async function messageHandler (messages, type) {
 async function handleCommand (m) {
   const found = findPlugin(m.command)
   if (!found?.plugin) {
-    if (!m.settings.autoReplyAI) return
-    return await aiAutoReply(m, m.q || m.command)
+    const suggestions = findCommandSuggestions(m.command, listPlugins(), { isOwner: m.isOwner, isGroup: m.isGroup })
+    if (suggestions.length) {
+      const sent = await m.reply(typoReplyText(m.command, suggestions, config.display.prefix))
+      await sendAIReactionSticker(m, m.q || m.command).catch(() => false)
+      return sent
+    }
+    if (m.settings.autoReplyAI) return await aiAutoReply(m, m.q || m.command)
+    return await m.reply(typoReplyText(m.command, [], config.display.prefix))
   }
 
   const p = found.plugin
@@ -802,26 +816,28 @@ export async function sendAIMenu (m, page = 0) {
 async function aiAutoReply (m, text) {
   const key = m.isGroup ? m.jid : (m.senderKey || m.sender)
   const name = m.pushName || 'user'
+  const quoted = String(m.quoted?.text || '').trim()
+  const prompt = quoted
+    ? `Pesan bot yang kamu balas: \"${truncate(quoted, 900)}\"\nPesan terbaru dari ${name}: ${String(text || '').trim()}\nJawab pesan terbaru dengan konteks tersebut.`
+    : String(text || '').trim()
   try {
     await m.typing()
     await m.react('🤖')
     const history = getMemory(key)
-    const answer = await aiChat(text, history, {
-      system: `${activePersona()}\n\nKonteks: kamu sedang chatting dengan ${name}${m.isGroup ? ` di grup "${m.groupName}"` : ''}. Jawab ringkas ala chat WhatsApp (maks 3 paragraf), jangan pakai markdown heading.`
+    const rawAnswer = await aiChat(prompt, history, {
+      system: `${activePersona()}\n\nKonteks: kamu sedang chat dengan ${name}${m.isGroup ? ` di grup \"${m.groupName}\"` : ''}. Tanggapi pesan terakhir secara langsung, alami, dan ringkas; jangan pakai heading atau format AI yang kaku.`
     })
-    pushMemory(key, 'user', text)
+    const answer = cleanAIText(rawAnswer)
+    pushMemory(key, 'user', prompt)
     pushMemory(key, 'assistant', answer)
 
-    const clean = truncate(answer, 3500)
-    if (m.settings.aiRich !== false && clean.length < 900) {
-      try {
-        return await m.sendAIRich({ text: clean, suggest: ['lanjutin', 'jelasin lagi', '.menu'] })
-      } catch {}
-    }
-    return await m.reply(clean)
+    // Plain text memastikan balasan terlihat di semua versi WhatsApp; Rich tetap tersedia lewat demo.
+    const sent = await m.reply(truncate(answer, 3500))
+    await sendAIReactionSticker(m, text).catch(() => false)
+    return sent
   } catch (e) {
     log.ai('auto reply gagal:', e.message)
-    return await m.reply('🤖 AI sedang sibuk / error: `' + truncate(e.message, 200) + '`').catch(() => {})
+    return await m.reply('Maaf, AI lagi belum bisa membalas. Coba lagi sebentar ya.').catch(() => {})
   }
 }
 

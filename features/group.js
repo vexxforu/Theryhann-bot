@@ -160,9 +160,9 @@ export const tagAll = {
 }
 
 export const kickAdd = {
-  command: ['kick', 'add', 'promote', 'demote'],
+  command: ['kick', 'ewe', 'entod', 'dor', 'tendang', 'add', 'promote', 'demote'],
   category: 'Group Menu',
-  description: 'Keluarkan/tambah/naikkan/turunkan member',
+  description: 'Keluarkan member (.kick/.ewe/.entod/.dor/.tendang), tambah, naikkan, atau turunkan admin',
   group: true,
   admin: true,
   botAdmin: true,
@@ -176,7 +176,7 @@ export const kickAdd = {
      *     mention/reply menghasilkan @lid yang tidak ditulis persis
      *     seperti participant.id → "not in group".
      * ---------------------------------------------------------------- */
-    const AKSI = { kick: 'remove', add: 'add', promote: 'promote', demote: 'demote' }
+    const AKSI = { kick: 'remove', ewe: 'remove', entod: 'remove', dor: 'remove', tendang: 'remove', add: 'add', promote: 'promote', demote: 'demote' }
     const aksi = AKSI[m.command] || m.command
     const partisipan = m.group?.participants || []
 
@@ -231,7 +231,7 @@ export const kickAdd = {
     if (!sukses) {
       return m.reply(`❌ Gagal ${m.command} @${mentah.split('@')[0]} (${status || 'ditolak WhatsApp'}).`, { mentions: [mentah] })
     }
-    const label = { kick: 'mengeluarkan', promote: 'mempromosikan', demote: 'menurunkan' }[m.command]
+    const label = ({ kick: 'mengeluarkan', ewe: 'mengeluarkan', entod: 'mengeluarkan', dor: 'mengeluarkan', tendang: 'mengeluarkan', promote: 'mempromosikan', demote: 'menurunkan' })[m.command] || 'memproses'
     return m.reply(`✅ Berhasil ${label} @${sukses.split('@')[0]}.`, { mentions: [sukses] })
   }
 }

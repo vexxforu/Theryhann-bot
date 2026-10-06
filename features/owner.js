@@ -398,7 +398,25 @@ export const setMenuImg = {
   run: async (m) => {
     const s = getSettings()
     const p = config.display.prefix
-    const arg = String(m.q || '').trim()
+    let arg = String(m.q || '').trim()
+
+    // Kompatibilitas sintaks lama dan baru: .setmenuimg <url> / .setmenuimg url <url>
+    let explicitUrl = false
+    if (/^url(?:\s|$)/i.test(arg)) {
+      explicitUrl = true
+      const link = arg.replace(/^url\b/i, '').trim()
+      if (!link) return m.reply(`Masukkan link gambar setelah kata url.\nContoh: \`${p}setmenuimg url https://example.com/menu.jpg\``)
+      arg = link
+    }
+    if (explicitUrl || /^https?:/i.test(arg)) {
+      try {
+        const parsed = new URL(arg)
+        if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) throw new Error('protokol/host tidak valid')
+        arg = parsed.href
+      } catch {
+        return m.reply(`Link gambar tidak valid. Gunakan URL http/https, contoh: \`${p}setmenuimg url https://example.com/menu.jpg\``)
+      }
+    }
 
     const applyAndPreview = async (val, label) => {
       const nilai = !val || ['none', 'off', 'reset', 'hapus'].includes(String(val).toLowerCase()) ? 'none' : val
@@ -428,7 +446,8 @@ export const setMenuImg = {
           `▸ \`${p}setmenuimg banner\` — banner gradient buatan bot\n` +
           `▸ \`${p}setmenuimg banner:<tema>\` — banner tema tertentu\n` +
           `▸ \`${p}setmenuimg random\` — banner tema acak\n` +
-          `▸ \`${p}setmenuimg <url>\` — pakai sebagai pratinjau link\n` +
+          `▸ \`${p}setmenuimg url <link>\` — pakai sebagai pratinjau link\n` +
+          `   (singkatnya boleh \`${p}setmenuimg <link>\`)\n` +
           `▸ reply gambar lalu \`${p}setmenuimg\` — simpan gambar itu\n\n` +
           `Tema banner: ${listThemes().join(', ')}`,
         footer: config.bot.footer,

@@ -1,13 +1,13 @@
 /**
  * ============================================================================
- *  🤖 .claude — AI lewat proxy Anthropic (konfigurasi env bawaan)
+ *  🤖 .claude — AI Anthropic opsional (tanpa token bawaan)
  * ============================================================================
- *  Konfigurasi (bisa ditimpa lewat config.ai.anthropic di config.js):
- *    ANTHROPIC_BASE_URL            https://api.apinex.bond
- *    ANTHROPIC_AUTH_TOKEN          sk-apx… (punya owner)
- *    ANTHROPIC_DEFAULT_OPUS_MODEL    claude/opus-5
- *    ANTHROPIC_DEFAULT_SONNET_MODEL  claude/sonnet-5
- *    ANTHROPIC_DEFAULT_HAIKU_MODEL   deepseek/v4-flash
+ *  Konfigurasi di Railway Variables atau lingkungan server:
+ *    ANTHROPIC_BASE_URL              (opsional; default API resmi Anthropic)
+ *    ANTHROPIC_AUTH_TOKEN            (wajib untuk .claude; rahasiakan)
+ *    ANTHROPIC_DEFAULT_OPUS_MODEL    (opsional)
+ *    ANTHROPIC_DEFAULT_SONNET_MODEL  (opsional)
+ *    ANTHROPIC_DEFAULT_HAIKU_MODEL   (opsional)
  *
  *  Cara pakai:
  *    .claude <pertanyaan>            model bawaan (sonnet)
@@ -15,9 +15,8 @@
  *    .claude opus <pertanyaan>       model paling pintar
  *    .claude model                   lihat daftar model
  *
- *  ⚠️ Token terpasang sebagai bawaan supaya langsung jalan tanpa utak-atik
- *     config. Siapa pun yang bisa membaca file bot bisa melihatnya —
- *     jangan sebarkan repo/script ini ke orang lain.
+ *  Token tidak disimpan di source code. Jika belum mengatur key, pakai
+ *  perintah .ai untuk provider cadangan yang tersedia.
  * ============================================================================
  */
 import { config } from '../config.js'
@@ -25,16 +24,16 @@ import { truncate } from '../lib/functions.js'
 
 const P = config.display.prefix
 
-/* ---- konfigurasi: config.js > env > bawaan ---- */
+/* ---- konfigurasi: config.js > environment; tidak ada kredensial bawaan ---- */
 function cfgClaude () {
   const c = config.ai?.anthropic || {}
   return {
-    base: String(c.baseUrl || process.env.ANTHROPIC_BASE_URL || 'https://api.apinex.bond').replace(/\/+$/, ''),
-    token: String(c.authToken || c.token || process.env.ANTHROPIC_AUTH_TOKEN || 'sk-apx042836b625212e0f12b6a702a618c38167663489c5295f9').trim(),
+    base: String(c.baseUrl || process.env.ANTHROPIC_BASE_URL || 'https://api.anthropic.com').replace(/\/+$/, ''),
+    token: String(c.authToken || c.token || process.env.ANTHROPIC_AUTH_TOKEN || '').trim(),
     models: {
-      opus: String(c.opusModel || process.env.ANTHROPIC_DEFAULT_OPUS_MODEL || 'claude/opus-5').trim(),
-      sonnet: String(c.sonnetModel || process.env.ANTHROPIC_DEFAULT_SONNET_MODEL || 'claude/sonnet-5').trim(),
-      haiku: String(c.haikuModel || process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL || 'deepseek/v4-flash').trim()
+      opus: String(c.opusModel || process.env.ANTHROPIC_DEFAULT_OPUS_MODEL || 'claude-opus-4-20250514').trim(),
+      sonnet: String(c.sonnetModel || process.env.ANTHROPIC_DEFAULT_SONNET_MODEL || 'claude-sonnet-4-20250514').trim(),
+      haiku: String(c.haikuModel || process.env.ANTHROPIC_DEFAULT_HAIKU_MODEL || 'claude-3-5-haiku-latest').trim()
     }
   }
 }

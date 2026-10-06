@@ -1107,7 +1107,7 @@ bash update.sh ~/bot.zip            # file lokal
 | Menu jadi teks biasa | Itu **fallback otomatis** karena WA menolak pesan interaktif (versi WA lama). Update WhatsApp kamu |
 | AI bilang "sedang sibuk / rate-limit" | Isi `pollinationsToken` / `geminiKey` / `groqKey` di `config.js`, coba lagi beberapa detik |
 | Stiker gagal / `ffmpeg belum terpasang` | `pkg install -y ffmpeg libwebp` |
-| `Cannot find module ...` | `npm install` ulang; kalau perlu `rm -rf node_modules package-lock.json && npm install` |
+| `Cannot find module ...` | `npm install` ulang; kalau perlu hapus `node_modules/` lalu jalankan `npm ci` (jangan hapus `package-lock.json` agar versi dependensi tetap konsisten) |
 | Bot mati saat layar HP mati | Pakai `bash scripts/termux-run.sh` + `termux-wake-lock`, matikan battery optimization Termux |
 | `EACCES` / permission error | Jangan pakai `sudo` di Termux; pastikan kamu di dalam folder bot |
 | Gambar header menu bikin error/lambat | Biarkan `display.menuImage: ''` (default). Header gambar butuh upload media |
