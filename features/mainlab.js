@@ -11,12 +11,15 @@ import { config } from '../config.js'
 import { truncate, formatDuration, formatSize } from '../lib/functions.js'
 import { listPlugins, categories, plugins as pluginMap } from '../lib/plugins.js'
 import { sendCarousel, sendAIRich } from '../lib/interactive.js'
+import { sendPagedList, menuPageIndex } from '../lib/menupaging.js'
+import { menuImageContextInfo } from '../lib/menuimg.js'
 import { sendHtmlApp } from '../lib/htmlapp.js'
 import { allUsers, allGroups, getSettings, getStats } from '../lib/database.js'
 import { sectionsGroup, sectionsSticker, sectionsFun, sectionsOwner } from './submenu.js'
 
 const P = config.display.prefix
 const NAMA = config.bot.name
+const IKON_KATEGORI = { 'AI Menu': '🤖', Downloader: '⬇️', 'Fun Menu': '🎉', Games: '🎮', 'Group Menu': '👥', 'Info Menu': 'ℹ️', Internet: '🌐', Islami: '🕌', 'Main Menu': '🏠', 'Owner Menu': '👑', Premium: '💎', 'RPG Menu': '⚔️', 'Sticker Menu': '🎨', Tools: '🧰', 'User Menu': '👤' }
 
 /* ------------------------- helper ------------------------- */
 const main = (command, aliases, description, run, contoh = '', opt = {}) => ({
@@ -31,38 +34,39 @@ const main = (command, aliases, description, run, contoh = '', opt = {}) => ({
     try { return await run(m) } catch (e) { return m.reply(`⚠️ ${truncate(String(e.message || e), 220)}`) }
   }
 })
-/** baris daftar command sebuah kategori */
-const isiKategori = (kat, maks = 60) => {
-  const list = (categories().get(kat) || []).slice(0, maks)
-  return list.map(p => `▸ ${P}${p.name} — ${p.description || ''}`).join('\n')
-}
 /* v7.32.0 — submenu ber-sections (diurutkan sesuai kegunaan, lihat features/submenu.js) */
 const kirimSub = (judul, emoji, buat, ket) => async m => {
   const sections = buat()
   const total = sections.reduce((a, s) => a + s.rows.length, 0)
-  return m.sendList({
-    title: `${emoji} ${judul}`,
-    text: `${emoji} *${judul} — ${total} fitur*\n${ket}\n\nPilih untuk langsung menjalankan:`,
-    footer: config.bot.footer,
-    buttonText: `${emoji} ${judul}`,
-    sections
-  })
+  try {
+    return await sendPagedList(m, {
+      title: `${emoji} ${judul}`,
+      text: `${emoji} *${judul} — ${total} fitur*\n${ket}\n\nPilih untuk langsung menjalankan:`,
+      footer: config.bot.footer,
+      buttonText: `${emoji} ${judul}`,
+      sections,
+      page: menuPageIndex(m),
+      command: `${P}${m.command || 'menu'}`
+    })
+  } catch {
+    return m.reply(`*${emoji} ${judul} (${total})*\n\n` + sections.map(s => `*${s.title}*\n` + s.rows.map(r => `▸ ${r.id}`).join('\n')).join('\n\n'))
+  }
 }
 /** menu list untuk satu kategori */
-const menuKat = (m, kat, emoji, judul) => {
+const menuKat = (m, kat, emoji, judul, command = m.command || 'listkat') => {
   const list = categories().get(kat) || []
   if (!list.length) return m.reply(`ℹ️ Kategori *${kat}* sedang kosong.`)
-  const perBagian = Math.ceil(list.length / 2)
-  const bagi = [list.slice(0, perBagian), list.slice(perBagian)].filter(x => x.length)
-  return m.sendList({
+  return sendPagedList(m, {
     title: `${emoji} ${judul}`,
-    text: `${list.length} perintah di kategori *${kat}*.\n\nPilih perintah untuk langsung menjalankannya:`,
+    text: `${list.length} perintah di kategori *${kat}*.\nPilih perintah untuk langsung menjalankannya:`,
     footer: config.bot.footer,
     buttonText: `${emoji} Lihat ${judul}`,
-    sections: bagi.map((bag, i) => ({
-      title: `${judul} ${bagi.length > 1 ? (i + 1) : ''}`.trim(),
-      rows: bag.map(p => ({ title: `${P}${p.name}`, description: p.description || '', id: `${P}${p.name}` }))
-    }))
+    sections: [{
+      title: judul,
+      rows: list.map(p => ({ title: `${P}${p.name}`, description: p.description || '', id: `${P}${p.name}` }))
+    }],
+    page: menuPageIndex(m),
+    command: `${P}${command}`
   })
 }
 
@@ -85,15 +89,17 @@ export const menuKategoriCmds = [
     const list = listPlugins().filter(p => p.admin || p.group)
     const perKat = {}
     for (const p of list) (perKat[p.category] = perKat[p.category] || []).push(p)
-    return m.sendList({
+    return sendPagedList(m, {
       title: '🛡️ MENU ADMIN GRUP',
-      text: `*${list.length} perintah* yang butuh status grup/admin.\n\nPastikan bot sudah jadi admin: ${P}undangbot`,
+      text: `*${list.length} perintah* yang butuh status grup/admin.\nPastikan bot sudah jadi admin: ${P}undangbot`,
       footer: config.bot.footer,
       buttonText: '🛡️ Menu Admin',
-      sections: Object.entries(perKat).slice(0, 8).map(([k, arr]) => ({
+      sections: Object.entries(perKat).map(([k, arr]) => ({
         title: `${k} (${arr.length})`,
-        rows: arr.slice(0, 12).map(p => ({ title: `${P}${p.name}`, description: p.description || '', id: `${P}${p.name}` }))
-      }))
+        rows: arr.map(p => ({ title: `${P}${p.name}`, description: p.description || '', id: `${P}${p.name}` }))
+      })),
+      page: menuPageIndex(m),
+      command: `${P}${m.command || 'menuadmin'}`
     })
   })
 ]
@@ -104,30 +110,41 @@ export const menuKategoriCmds = [
 const semuaKategori = () => [...categories()].sort((a, b) => b[1].length - a[1].length)
 
 export const menuVarianCmds = [
-  main('menutombol', ['menubutton', 'menubuttonlist'], 'Menu utama dalam bentuk tombol', m => {
+  main('menutombol', ['menubutton', 'menubuttonlist'], 'Menu utama dalam bentuk tombol', async m => {
     const cats = semuaKategori()
     const total = listPlugins().length
+    const contextInfo = await menuImageContextInfo({
+      title: `📋 Menu ${NAMA}`,
+      body: `${total} perintah dalam ${cats.length} kategori`
+    }).catch(() => undefined)
     return m.sendButtons({
       title: `🤖 ${NAMA}`,
-      text: `Halo @${(m.senderKey || m.sender).split('@')[0]}! 👋\n\nBot ini punya *${total} perintah* dalam ${cats.length} kategori.\n\nPakai tombol di bawah untuk membuka menu yang kamu mau.`,
+      text: `👋 Hai @${(m.senderKey || m.sender).split('@')[0]}!\n\n*${total} fitur* dalam ${cats.length} kategori.\nPilih kategori atau buka ${P}menulist untuk daftar lengkap.`,
       footer: config.bot.footer,
-      buttons: cats.slice(0, 6).map(([k, v]) => ({ text: `${k} (${v.length})`, id: `${P}menu${k.toLowerCase().replace(/[^a-z]/g, '').slice(0, 10)}` })),
-      image: config.display.thumbnail
+      contextInfo,
+      buttons: cats.slice(0, 6).map(([k, v]) => ({
+        text: `${IKON_KATEGORI[k] || '📂'} ${truncate(k, 16)} (${v.length})`,
+        id: `${P}listkat ${k}`
+      }))
     })
   }),
 
-  main('menulist', ['menudropdownlist', 'menudropdown'], 'Menu utama dalam bentuk list/dropdown', m => {
+  main('menulist', ['menudropdownlist', 'menudropdown'], 'Daftar kategori button list; pilih kategori untuk melihat perintah', async m => {
     const cats = semuaKategori()
-    return m.sendList({
+    const total = listPlugins().length
+    const rows = cats.map(([k, v]) => ({
+      title: `${IKON_KATEGORI[k] || '📂'} ${k} (${v.length})`,
+      description: 'Buka daftar perintah kategori',
+      id: `${P}listkat ${k}`
+    }))
+    return sendPagedList(m, {
       title: `📋 MENU ${NAMA}`,
-      text: `${listPlugins().length} perintah · ${cats.length} kategori\n\nPilih kategori:`,
+      text: `*${total} perintah* · ${cats.length} kategori.\nPilih kategori untuk melihat perintah secara bertingkat:`,
       footer: config.bot.footer,
-      buttonText: '📋 Buka Kategori',
-      sections: cats.map(([k, v]) => ({
-        title: `${k} (${v.length})`,
-        rows: v.slice(0, 10).map(p => ({ title: `${P}${p.name}`, description: p.description || '', id: `${P}${p.name}` }))
-          .concat([{ title: `➕ Lihat semua ${k}`, id: `${P}listkat ${k}` }])
-      }))
+      buttonText: '📂 Pilih Kategori',
+      sections: [{ title: 'KATEGORI', rows }],
+      page: menuPageIndex(m),
+      command: `${P}${m.command || 'menulist'}`
     })
   }),
 
@@ -232,15 +249,42 @@ tabs();render();
     return m.reply(`🤖 *${NAMA}*\n\n${cats.map(([k, v]) => `*${k}* (${v.length}) → ${P}listkat ${k}`).join('\n')}\n\nTotal: ${listPlugins().length} perintah\nCari: ${P}carimenu <kata>`)
   }),
 
-  main('listkat', ['isikategori', 'lihatkategori'], 'Lihat semua perintah satu kategori: .listkat <nama>', m => {
-    const q = m.q
+  main('listkat', ['isikategori', 'lihatkategori'], 'Button list kategori/perintah: .listkat <nama kategori> [halaman]', m => {
     const cats = semuaKategori()
-    if (!q) return m.reply(`Contoh: ${P}listkat Islami\n\nKategori tersedia:\n${cats.map(([k, v]) => `▸ ${k} (${v.length})`).join('\n')}`)
+    const args = Array.isArray(m.args) ? [...m.args] : String(m.q || '').trim().split(/\s+/).filter(Boolean)
+    if (/^\d+$/.test(String(args.at(-1) || '')) && Number(args.at(-1)) > 0) args.pop()
+    const q = args.join(' ').trim()
+    if (!q) {
+      const rows = cats.map(([k, v]) => ({
+        title: `${IKON_KATEGORI[k] || '📂'} ${k} (${v.length})`,
+        description: 'Buka daftar perintah kategori',
+        id: `${P}listkat ${k}`
+      }))
+      return sendPagedList(m, {
+        title: '📂 KATEGORI MENU',
+        text: `Pilih salah satu dari ${cats.length} kategori untuk melihat perintahnya.`,
+        buttonText: '📂 Pilih Kategori',
+        sections: [{ title: 'KATEGORI', rows }],
+        page: menuPageIndex(m),
+        command: `${P}listkat`
+      })
+    }
     const kat = cats.find(([k]) => k.toLowerCase() === q.toLowerCase())?.[0] ||
       cats.find(([k]) => k.toLowerCase().includes(q.toLowerCase()))?.[0]
     if (!kat) return m.reply(`❌ Kategori "${q}" tidak ada.\n\nTersedia:\n${cats.map(([k]) => `▸ ${k}`).join('\n')}`)
     const list = categories().get(kat) || []
-    return m.reply(`📂 *${kat.toUpperCase()}* (${list.length} perintah)\n\n${truncate(isiKategori(kat, 200), 3600)}\n\n💡 Contoh pakai: ${P}${list[0]?.name || 'menu'}`)
+    return sendPagedList(m, {
+      title: `${IKON_KATEGORI[kat] || '📂'} ${kat}`,
+      text: `*${list.length} perintah* dalam kategori *${kat}*. Pilih untuk langsung menjalankan:`,
+      buttonText: `📋 Lihat ${kat}`,
+      sections: [{ title: kat, rows: list.map(p => ({
+        title: `${P}${p.name}`,
+        description: p.description || '',
+        id: `${P}${p.name}`
+      })) }],
+      page: menuPageIndex(m),
+      command: `${P}listkat ${kat}`
+    })
   }, 'Islami')
 ]
 

@@ -7,7 +7,7 @@ import path from 'node:path'
 import util from 'node:util'
 import { exec as execCB } from 'node:child_process'
 import { config } from '../config.js'
-import { resolveImageValue, bannerBuffer, clearBannerCache, listThemes } from '../lib/menuimg.js'
+import { resolveImageValue, menuImageContextInfo, bannerBuffer, clearBannerCache, listThemes } from '../lib/menuimg.js'
 import { FEATURES_DIR, loadPlugins, reloadPlugin, unloadPlugin, listPlugins } from '../lib/plugins.js'
 import {
   allUsers,
@@ -392,7 +392,7 @@ export const systemCmd = {
 export const setMenuImg = {
   command: ['setmenuimg', 'setmenuimage', 'menuimg', 'setbgmenu'],
   category: 'Owner Menu',
-  description: 'Custom gambar header menu (url / reply gambar / banner)',
+  description: 'Atur pratinjau link gambar menu (URL / reply gambar / banner)',
   owner: true,
   limit: 0,
   run: async (m) => {
@@ -401,12 +401,22 @@ export const setMenuImg = {
     const arg = String(m.q || '').trim()
 
     const applyAndPreview = async (val, label) => {
-      setSetting('menuImage', val)
+      const nilai = !val || ['none', 'off', 'reset', 'hapus'].includes(String(val).toLowerCase()) ? 'none' : val
+      setSetting('menuImage', nilai)
       clearBannerCache()
-      const img = await resolveImageValue(val).catch(() => null)
-      if (!img) return m.reply(`✅ Gambar menu diset: *${label}* (tanpa gambar — menu jadi paling cepat).`)
-      return m.sendImage(img, `✅ Gambar header menu diset: *${label}*\nSemua menu sekarang pakai gambar ini.`)
-        .catch(() => m.reply(`✅ Gambar menu diset: *${label}*`))
+      const img = await resolveImageValue(nilai).catch(() => null)
+      if (!img) return m.reply(`✅ Gambar menu diset: *${label}* (pratinjau gambar dimatikan).`)
+
+      const text = `✅ Gambar menu diset: *${label}*\nBuka \`${p}menu\` untuk melihat pratinjau link.`
+      const contextInfo = await menuImageContextInfo({
+        image: nilai,
+        title: '🖼️ PRATINJAU GAMBAR MENU',
+        body: `Gambar menu aktif · ${label}`
+      }).catch(() => undefined)
+      if (contextInfo) {
+        try { return await m.sock.sendMessage(m.jid, { text, contextInfo }, { quoted: m.raw }) } catch {}
+      }
+      return m.sendImage(img, text).catch(() => m.reply(`✅ Gambar menu diset: *${label}*`))
     }
 
     if (!arg && !m.quoted?.isMedia) {
@@ -414,11 +424,11 @@ export const setMenuImg = {
         title: '🖼️ Gambar Menu',
         body: `*Gambar header menu saat ini:* ${s.menuImage || '(bawaan config)'}\n\n` +
           'Pilihan:\n' +
-          `▸ \`${p}setmenuimg none\` — tanpa gambar (paling cepat)\n` +
+          `▸ \`${p}setmenuimg none\` — matikan pratinjau gambar\n` +
           `▸ \`${p}setmenuimg banner\` — banner gradient buatan bot\n` +
           `▸ \`${p}setmenuimg banner:<tema>\` — banner tema tertentu\n` +
           `▸ \`${p}setmenuimg random\` — banner tema acak\n` +
-          `▸ \`${p}setmenuimg <url>\` — gambar dari internet\n` +
+          `▸ \`${p}setmenuimg <url>\` — pakai sebagai pratinjau link\n` +
           `▸ reply gambar lalu \`${p}setmenuimg\` — simpan gambar itu\n\n` +
           `Tema banner: ${listThemes().join(', ')}`,
         footer: config.bot.footer,

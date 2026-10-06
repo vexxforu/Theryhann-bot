@@ -18,7 +18,7 @@
 import { config } from '../config.js'
 import { sendButtons, sendList } from '../lib/interactive.js'
 import { GAMES } from '../lib/airichgame.js'
-import { DAFTAR_ARCADE, DAFTAR_ARCADE2, DAFTAR_ARCADE3, DAFTAR_ARCADE5, DAFTAR_ARCADE6, DAFTAR_ARCADE7, DAFTAR_ARCADE8, DAFTAR_ARCADE9, DAFTAR_ARCADE_ALL } from './arcade.js'
+import { DAFTAR_ARCADE, DAFTAR_ARCADE2, DAFTAR_ARCADE3, DAFTAR_ARCADE5, DAFTAR_ARCADE6, DAFTAR_ARCADE7, DAFTAR_ARCADE8, DAFTAR_ARCADE9, DAFTAR_ARCADE10, DAFTAR_ARCADE_ALL } from './arcade.js'
 import { DAFTAR_ARCADE_4, DAFTAR_ARCADE_ALL2 } from './arcadebaru.js'
 import { DAFTAR_CASINO } from './casinolab.js'
 import { DAFTAR_CASINO_RPG } from './casinorpg.js'
@@ -91,7 +91,10 @@ export const gameRespon = {
       `   ✨ *RUPA ASLI batch 2 (v7.9.0):* ${DAFTAR_ARCADE6.map(g => `${g.icon} ${P}${g.cmd}`).join(' · ')}\n` +
       `   🆕 *BARU v7.12.0 (lock screen):* ${DAFTAR_ARCADE7.map(g => `${g.icon} ${P}${g.cmd}`).join(' · ')}\n` +
       `   📖 *GAME CERITA v7.17.0 (menu · pengaturan · simpan):* ${DAFTAR_ARCADE9.map(g => `${g.icon} ${P}${g.cmd}`).join(' · ')} · ${P}arcadecerita\n` +
-      `   🎮 *MULTIPLAYER-ARENA v7.13.0 (lawan = member grup):* ${DAFTAR_ARCADE8.map(g => `${g.icon} ${P}${g.cmd}`).join(' · ')}\n\n` +
+      `   🎮 *MULTIPLAYER-ARENA v7.13.0 (lawan = member grup):* ${DAFTAR_ARCADE8.map(g => `${g.icon} ${P}${g.cmd}`).join(' · ')}\n` +
+      `   🎸 *RITME v7.37.0 (pilih lagu · note sesuai ketukan):* ${DAFTAR_ARCADE10.map(g => `${g.icon} ${P}${g.cmd}`).join(' · ')}\n` +
+      `   🃏 *KARTU MULTIPLAYER v7.37.0 (2-8 member, giliran di chat):* ${P}uno → ${P}unoikut → ${P}unomulai → ${P}unomain <n> [warna]\n` +
+      `   🎴 *UNO HTML (1 pemain vs 3 AI, kartu interaktif):* ${P}unohtml\n\n` +
       `🧸 *PASTEL — ${n.pastel} game HTML app (kulit pastel)*  ·  ${P}pastel\n` +
       [...DAFTAR_PASTEL, ...DAFTAR_PASTEL_2].map(g => `   ${g.icon} ${P}${g.cmd} — ${g.nama}  \`${g.ratio}\``).join('\n') + '\n\n' +
       `🎰 *CASINO — ${n.casino} game HTML app*  ·  ${P}casino\n` +

@@ -1,8 +1,6 @@
 /**
  * 🏠 MAIN MENU — menu utama bot (interactive / button list / text)
  */
-import { sendMainMenu } from '../handlers/message.js'
-import fs from 'node:fs'
 import { config } from '../config.js'
 import { categories } from '../lib/plugins.js'
 import { getSettings } from '../lib/database.js'
@@ -11,8 +9,9 @@ import { menu2Html } from '../lib/menu2.js'
 import { menu3Html } from '../lib/menu3.js'
 import { sendHtmlApp } from '../lib/htmlapp.js'
 import { sendButtons } from '../lib/interactive.js'
+import { sendPagedList } from '../lib/menupaging.js'
+import { menuImageContextInfo } from '../lib/menuimg.js'
 
-const IKON_KAT = { 'RPG Menu': '⚔️', Games: '🎮', 'Fun Menu': '🎉', Fun: '🎉', Premium: '💎', 'User Menu': '👤', 'Group Menu': '👥', 'Owner Menu': '👑', Owner: '👑', Tools: '🧰', 'AI Menu': '🤖', 'Sticker Menu': '🎨', 'Info Menu': 'ℹ️', Info: 'ℹ️', Downloader: '⬇️', Internet: '🌐', Islami: '🕌', 'Main Menu': '🏠' }
 
 export default {
   command: ['menu', 'help', '?', 'start'],
@@ -55,25 +54,32 @@ export default {
     const P2 = prefix
     const b = config.bot
     const u = m.userDB || {}
-    const sekarang = new Date()
-    const pad = n => String(n).padStart(2, '0')
-    const tanggalnya = `${sekarang.getDate()}/${sekarang.getMonth() + 1}/${sekarang.getFullYear()}, ${pad(sekarang.getHours())}.${pad(sekarang.getMinutes())}.${pad(sekarang.getSeconds())}`
-    const statusKmu = u.premium ? '\`premium aktif\`' : '\`tidak diketahui\`'
-    let pembuka = ''
-    try { pembuka = String(getSettings().pesanPembuka || '').trim() } catch { pembuka = '' }
     const totalCmd = [...categories().values()].reduce((a, v) => a + v.length, 0)
+    const totalAll = categories().size
+    let pembuka = ''
+    try { pembuka = String(getSettings().pesanPembuka || '').trim() } catch {}
+    let modeMenu = 'auto'
+    try { modeMenu = String(getSettings().menuMode || config.display.menuMode || 'auto').toLowerCase() } catch {}
+    const akun = m.isOwner ? '👑 OWNER' : u.premium ? '💎 PREMIUM' : '🆓 GRATIS'
+    const daftar = u.registered ? '✅ Terdaftar' : `⚪ Belum daftar · ${P2}daftar`
+    const limit = m.isOwner || u.premium ? '∞ / tanpa batas' : Number(u.limit ?? 0).toLocaleString('id-ID')
+    const modeBot = (() => { try { return getSettings().public === false ? 'SELF' : 'PUBLIC' } catch { return 'PUBLIC' } })()
+    const tanggalnya = tanggalWIB()
     const hiu = [
-      `> ${(b.name || 'THERYHANN!').toUpperCase()} · HALO AKU ADALAH THERYHAN!`,
+      `> 🤖 ${(b.name || 'THERYHANN!').toUpperCase()} · WHATSAPP BOT`,
       '',
-      `╭───〔 ✨ *MENU UTAMA* ✨ 〕`,
-      `│ 👋 Hai, *${truncate(String(m.pushName || 'kakak'), 60)}*!`,
-      pembuka ? `│ 💬 ${pembuka}` : `│ 💬 Siap bantu kamu hari ini.`,
-      '├───────────────',
-      `│ 🏷️ Status : ${statusKmu}`,
-      `│ 🎟️ Limit  : *${u.premium ? 'UNLIMITED' : (u.limit ?? 0)}*`,
-      `│ 📦 Fitur  : *${totalCmd}* perintah · v${b.version || ''}`,
-      `│ 📅 ${tanggalnya}`,
-      '╰───────────────',
+      '╭━━〔 ✨ MENU UTAMA 〕',
+      `│ 👋 Hai, *${truncate(String(m.pushName || 'kakak'), 50)}*!`,
+      pembuka ? `│ 💬 ${truncate(pembuka, 100)}` : '│ 💬 Siap bantu kamu hari ini.',
+      '├────────────────',
+      `│ 👤 Akun : ${akun} · ${daftar}`,
+      `│ 🎟️ Limit: *${limit}*`,
+      `│ ⚙️ Mode : ${modeBot} · menu ${modeMenu.toUpperCase()}`,
+      `│ 🔣 Prefix: \`${P2}\``,
+      `│ 🧩 Fitur: *${totalCmd}* perintah · v${b.version || ''}`,
+      `│ ⏱️ Aktif: ${formatDuration(process.uptime() * 1000)}`,
+      `│ 🗓️ WIB : ${tanggalnya}`,
+      '╰────────────────',
       '',
       '*PILIH FITUR DI BAWAH INI:* 👇'
     ].join('\n')
@@ -88,10 +94,11 @@ export default {
       { title: '🧩 SUBMENU — ketuk untuk membuka', rows: SUBMENU_META.filter(s => !s.owner).map(barisSub) },
       (m.isOwner ? { title: '👑 KHUSUS OWNER', rows: SUBMENU_META.filter(s => s.owner).map(barisSub) } : null)
     ].filter(Boolean)
+    const contextInfoMenu = await menuImageContextInfo({
+      title: `🏠 Menu ${b.name || 'THERYHANN!'}`,
+      body: `${totalCmd} fitur · pilih submenu untuk membuka daftar`
+    }).catch(() => undefined)
 
-    let modeMenu = 'list'
-    try { modeMenu = String(getSettings().menuMode || config.display.menuMode || 'auto').toLowerCase() } catch {}
-    const totalAll = categories().size
     /* v7.30.0 — MENU KUSTOM (menu4, menu5, … dari .buatmenu) */
     if (/^menu([4-9]|1\d|20)$/.test(modeMenu)) {
       try {
@@ -102,7 +109,14 @@ export default {
           const html = renderMenuKustom(simpan.cfg, { brand: b.name || 'THERYHANN!', nama: m.pushName || 'kakak', status: m.isOwner ? 'OWNER' : u.premium ? 'PREMIUM' : 'FREE', limit: u.premium || m.isOwner ? '∞' : (u.limit ?? 0), fitur: totalCmd, versi: b.version || '', nomor: (m.sender || '').split('@')[0], kategori: dataKategori(m) })
           await sendHtmlApp(m.sock, m.jid, { title: `🏠 MENU${n} — ` + (b.name || 'THERYHANN!'), html })
           const cats = [...categories().entries()].filter(([k, v]) => v.length >= 3)
-          return await m.sendList({ title: `🏠 MENU${n} · pilih kategori`, text: '👆 Kartu menu di atas bisa diketuk (perintah tersalin). Atau pilih kategori di sini.', footer: b.footer || config.bot.footer, buttonText: `📂 ${cats.length} Kategori`, sections: [{ title: 'KATEGORI', rows: cats.slice(0, 20).map(([k, v]) => ({ title: `${k} (${v.length})`, description: 'buka daftar perintah', id: `${P2}menukategori ${k.replace(/ Menu$/i, '')}` })) }] })
+          return await sendPagedList(m, {
+            title: `🏠 MENU${n} · pilih kategori`,
+            text: '👆 Kartu menu di atas bisa diketuk (perintah tersalin). Atau pilih kategori di sini.',
+            footer: b.footer || config.bot.footer,
+            buttonText: `📂 ${cats.length} Kategori`,
+            sections: [{ title: 'KATEGORI', rows: cats.map(([k, v]) => ({ title: `${k} (${v.length})`, description: 'buka daftar perintah', id: `${P2}listkat ${k}` })) }],
+            command: `${P2}listkat`
+          })
         }
       } catch (e) { try { await m.reply(`⚠️ Menu kustom gagal (${truncate(String(e?.message || e), 60)}), memakai MENU2.`) } catch {} }
       modeMenu = 'html'
@@ -129,7 +143,14 @@ export default {
           catatan: [`Ketik nama submenu (mis. ${P2}menugame) untuk isinya · ${P2}menuall semua perintah`, tanggalnya]
         })
         await sendHtmlApp(m.sock, m.jid, { title: '🏠 MENU3 — ' + (b.name || 'THERYHANN!'), html })
-        return await m.sendList({ title: '🧩 PILIH SUBMENU', text: 'Ketuk submenu di bawah untuk membuka semua fiturnya (berurutan sesuai kegunaan).', footer: b.footer || config.bot.footer, buttonText: '🧩 10 Submenu', sections: sek }).catch(() => null)
+        return await m.sendList({
+          title: '🧩 PILIH SUBMENU',
+          text: 'Pilih submenu untuk membuka fitur yang sudah dikelompokkan.',
+          footer: b.footer || config.bot.footer,
+          buttonText: '🧩 Pilih Submenu',
+          sections: sek,
+          contextInfo: contextInfoMenu
+        }).catch(() => null)
       } catch (e) {
         try { await m.reply(`⚠️ MENU3 gagal (${truncate(String(e?.message || e), 60)}), memakai menu klasik.`) } catch {}
       }
@@ -144,20 +165,45 @@ export default {
       })
       try {
         await sendHtmlApp(m.sock, m.jid, { title: '🏠 MENU2 — ' + (b.name || 'THERYHANN!'), html })
-        const rows = sek.flatMap(g => g.rows).slice(0, 100)
-        return await m.sendList({ title: '🏠 MENU2 · pilih dari kartu di atas', text: `👆 *Kartu menu di atas bisa diketuk* (perintah tersalin).\nAtau buka daftar ini dan ketuk item yang sama — langsung jalan.\n\n_${P2}setmenu1 klasik · ${P2}setmenu3 video_`, footer: (b.footer || config.bot.footer), buttonText: '📂 Pilih Menu', sections: sek })
+        return await m.sendList({
+          title: '🏠 MENU2 · pilih dari kartu di atas',
+          text: `👆 *Kartu menu di atas bisa diketuk* (perintah tersalin).\nAtau pilih submenu di bawah untuk membuka daftar fiturnya.\n\n_${P2}setmenu1 klasik · ${P2}setmenu3 video_`,
+          footer: b.footer || config.bot.footer,
+          buttonText: '📂 Pilih Submenu',
+          sections: sek,
+          contextInfo: contextInfoMenu
+        })
       } catch (e) {
         try { return await m.reply(`⚠️ MENU2 gagal dikirim (${truncate(String(e?.message || e), 60)}), memakai menu klasik.`) } catch {}
       }
     }
     try {
-      /* v7.9.1: gambar header menu (media/menu.jpg lokal; fallback URL) */
-      const gambarMenu = (() => { try { const cand = getSettings().menuImage || config.display.menuImage || config.display.thumbnail; if (/^https?:/.test(cand)) return cand; return fs.existsSync(cand) ? cand : config.display.thumbnail } catch { return config.display.thumbnail } })()
+      const title = '🏠 MENU — ' + (b.name || 'THERYHANN!')
+      const footer = (b.footer || config.bot.footer) + ' · ' + totalAll + ' kategori aktif'
+      const semuaBaris = sek.flatMap(grup => grup.rows)
+      if (modeMenu === 'text') {
+        return await m.sendMenu({
+          title,
+          text: hiu + '\n\n' + semuaBaris.map(r => `▸ ${r.id} — ${r.description}`).join('\n'),
+          contextInfo: contextInfoMenu,
+          footer,
+          items: []
+        })
+      }
+      if (modeMenu === 'button' || (modeMenu === 'auto' && m.isGroup)) {
+        return await m.sendButtons({
+          title,
+          text: hiu,
+          contextInfo: contextInfoMenu,
+          footer,
+          buttons: semuaBaris.slice(0, 10).map(r => ({ text: truncate(r.title, 24), id: r.id }))
+        })
+      }
       return await m.sendList({
-        title: '🏠 MENU — ' + (b.name || 'THERYHANN!'),
+        title,
         text: hiu,
-        image: gambarMenu,
-        footer: (b.footer || config.bot.footer) + ' · ' + totalAll + ' kategori aktif',
+        contextInfo: contextInfoMenu,
+        footer,
         buttonText: '📂 Buka Hub',
         sections: sek
       })

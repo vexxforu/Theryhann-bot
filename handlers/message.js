@@ -64,7 +64,7 @@ import { checkPlayer } from '../lib/musikplayer.js'
 import { checkAfk } from '../features/extra.js'
 import { clockString, formatDuration, truncate, tanggalWIB, chunkText } from '../lib/functions.js'
 import { makeCard, randomTheme } from '../lib/canvas.js'
-import { resolveMenuImage, resolveImageValue } from '../lib/menuimg.js'
+import { resolveImageValue, menuImageContextInfo } from '../lib/menuimg.js'
 import {
   aliasesOf,
   isLid,
@@ -107,6 +107,27 @@ export function isOwnerNumber (jid) {
 /* ------------------------------------------------------------------ */
 /*  HANDLER UTAMA                                                      */
 /* ------------------------------------------------------------------ */
+/* ---------- CRM (.crm) ----------
+ * checkCrm dimuat DINAMIS, bukan dengan import statis dari features/crm.js.
+ * Import statis membuat bot GAGAL START (ERR_MODULE_NOT_FOUND) kalau crm.js
+ * belum ada — misalnya di HP yang baru ditambal tapi belum pasang fiturnya
+ * lewat `.>_`. Tanpa file itu bot tetap jalan normal, hanya saja jawaban
+ * form CRM tidak ditangkap. */
+let checkCrm = null
+try {
+  const modCrm = await import('../features/crm.js')
+  if (typeof modCrm.checkCrm === 'function') checkCrm = modCrm.checkCrm
+} catch { /* features/crm.js belum dipasang — fitur .crm nonaktif, bot tetap jalan */ }
+
+/* ---------- BASH (.bash) ----------
+ * Sama seperti checkCrm: dimuat dinamis supaya bot tetap hidup walau
+ * features/bash.js belum dipasang. */
+let checkBash = null
+try {
+  const modBash = await import('../features/bash.js')
+  if (typeof modBash.checkBash === 'function') checkBash = modBash.checkBash
+} catch { /* features/bash.js belum dipasang — fitur .bash nonaktif, bot tetap jalan */ }
+
 export async function messageHandler (messages, type) {
   if (type !== 'notify') return
   for (const raw of messages) {
@@ -183,7 +204,7 @@ export async function messageHandler (messages, type) {
         sendInteractive(sock, m.jid, { footer: settings.footer || config.bot.footer, quoted: m.raw, ...opt })
       m.sendMenu = (opt = {}) =>
         sendSmartMenu(sock, m.jid, {
-          footer: settings.footer || config.bot.footer,
+          footer: m.settings?.footer || config.bot.footer,
           isGroup: m.isGroup,
           quoted: m.raw,
           ...opt
@@ -271,6 +292,17 @@ export async function messageHandler (messages, type) {
         continue
       }
 
+      /* ---------- GRUP DIBANNED (.bangc) ----------
+         Bot berhenti merespons APA PUN di grup ini — diam total, tanpa
+         balasan, supaya benar-benar terasa "tidak bisa pakai bot".
+         Owner dikecualikan agar bisa `.bangc batal`. */
+      if (m.isGroup && !m.isOwner) {
+        try {
+          const dBan = loadDB('groupban', { grup: {} })
+          if (dBan?.grup?.[m.jid]) continue
+        } catch {}
+      }
+
       /* ---------- ANTI LINK / ANTI TOXIC ---------- */
       if (m.isGroup && !m.isAdmin && !m.isOwner) { if (await guardGroup(m)) continue }
 
@@ -291,9 +323,31 @@ export async function messageHandler (messages, type) {
 
       if (isAction) return await handleAction(m, btnId)
 
+      /* ---------- BASH: mode shell tanpa prefix ----------
+         Dicek SEBELUM routing perintah: saat mode shell nyala, `ls`, `cd`,
+         `pwd` tanpa prefix harus jadi perintah shell (foldernya satu), bukan
+         ditangkap plugin .ls/.cd milik fitur lain. Hanya pesan tanpa prefix
+         yang lewat sini; yang berawalan titik tetap jadi perintah bot.
+         Harus SETELAH `const isAction` dideklarasikan (temporal dead zone). */
+      if (checkBash && !isAction && !m.isBot && m.isCommand === false) {
+        try {
+          const bs = await checkBash(m)
+          if (bs?.handled) return
+        } catch (e) { log.warn('bash check:', e.message) }
+      }
+
+
       if (m.isCommand && m.command) {
         if (m.isGroup && m.groupSet?.mute && !m.isOwner && !['unmute', 'menu'].includes(m.command)) continue
         return await handleCommand(m)
+      }
+
+      /* ---------- CRM: tangkap jawaban user yang sedang mengisi form ---------- */
+      if (checkCrm && !isAction && !m.isBot && m.isCommand === false) {
+        try {
+          const cr = await checkCrm(m)
+          if (cr?.handled) return
+        } catch (e) { log.warn('crm check:', e.message) }
       }
 
       /* ---------- AFK ---------- */
@@ -416,7 +470,11 @@ async function handleCommand (m) {
   if (p.private && m.isGroup) return m.reply('📴 Fitur ini hanya bisa dipakai di chat pribadi.')
   if (p.admin && !m.isAdmin && !m.isOwner) return m.reply('🛡️ Fitur ini khusus Admin grup.')
   if (p.botAdmin && !m.isBotAdmin) return m.reply('🤖 Jadikan bot sebagai Admin grup dulu ya.')
-  if (p.premium && !m.isPremium) {
+  /* v7.37.0: `.topremium <fitur>` menambahkan kunci premium lewat overlay
+     settings.premiumCmd — tanpa perlu menulis ulang file fiturnya.
+     Owner selalu lolos. */
+  const dikunciPremium = p.premium || (m.settings?.premiumCmd || {})[found.name]
+  if (dikunciPremium && !m.isPremium && !m.isOwner) {
     return m.reply(`💎 Fitur ini khusus user *PREMIUM*.\n\nLihat paket: \`${config.display.prefix}hargapremium\`\nAjukan: \`${config.display.prefix}belipremium 30 hari\``)
   }
 
@@ -468,6 +526,23 @@ async function handleCommand (m) {
       aiTTS,
       reload: loadPlugins
     })
+
+    /* v7.37.0: `.tobutton <fitur>` menambahkan button list sebagai BALASAN
+       setelah teks asli fitur terkirim — file fiturnya tidak diubah, jadi
+       aman untuk fitur bawaan maupun buatan `.>_`. */
+    try {
+      const ov = (m.settings?.tombolFitur || {})[found.name]
+      if (ov?.tombol?.length) {
+        /* title WAJIB diisi: tanpa header.title, WhatsApp sering tidak
+           merender tombolnya sama sekali (pesan terlihat "kosong"). */
+        await sendButtons(sock, m.jid, {
+          title: `🔘 ${found.name}`,
+          text: ov.judul || 'Pilih opsi di bawah',
+          footer: m.settings?.footer || config.bot.footer,
+          buttons: ov.tombol
+        }).catch(() => {})
+      }
+    } catch {}
   } catch (e) {
     log.error(`command ${found.name}:`, e.message)
     await m.reply(`❌ Gagal menjalankan *${found.name}*\n\`\`\`${truncate(e?.message || String(e), 800)}\`\`\``).catch(() => {})
@@ -492,8 +567,8 @@ async function handleAction (m, id) {
       const target = (seg.length > 1 && /^\d+$/.test(last) ? seg.slice(0, -1) : seg).join(':')
       if (!target || target === 'main') return await sendMainMenu(m, page)
       if (target === 'all') return await sendAllMenu(m)
-      if (target === 'owner') return await sendOwnerMenu(m)
-      if (target === 'ai') return await sendAIMenu(m)
+      if (target === 'owner') return await sendOwnerMenu(m, page)
+      if (target === 'ai') return await sendAIMenu(m, page)
       return await sendCategoryMenu(m, target, page)
     }
 
@@ -573,46 +648,72 @@ function categoryRows () {
   }))
 }
 
-const PAGE_SIZE = 8 // mode button: 8 item + tombol navigasi (maks 10 tombol)
+const PAGE_SIZE = 7 // 7 perintah + prev/next/home = maksimal 10 quick-reply
+const LIST_PAGE_SIZE = 80 // sisakan ruang navigasi di bawah batas 100 baris
 
 /**
- * Kirim menu ber-paginasi.
- *  - mode list  : semua item (dipecah jadi section @10 baris oleh sendSmartMenu)
- *  - mode button: 8 item per halaman + ⬅️/➡️
- * idPrefix contoh: 'act:menu:main' atau 'act:menu:RPG Menu'
+ * Kirim menu berpaginasi untuk button (maks 10 tombol) maupun list (maks
+ * 100 baris). ID halaman memakai format act:menu:<target>:<halaman>.
  */
-async function sendPagedMenu (m, { text, title, items = [], page = 0, idPrefix = 'act:menu:main', home = true }) {
+async function sendPagedMenu (m, { text, title, items = [], page = 0, idPrefix = 'act:menu:main', home = true } = {}) {
   const mode = resolveMenuMode(m.isGroup)
-  if (mode !== 'button') {
-    return await m.sendMenu({ text, title, items })
-  }
-  const pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
-  const p = Math.min(Math.max(0, Number(page) || 0), pages - 1)
-  const slice = items.slice(p * PAGE_SIZE, p * PAGE_SIZE + PAGE_SIZE)
-  const buttons = [...slice]
-  if (pages > 1) {
+  const homeItem = { title: '🏠 Menu Utama', description: 'Kembali ke menu utama', id: 'act:menu:main' }
+  const contextInfo = await menuImageContextInfo({
+    title: `📋 ${title || config.bot.name}`,
+    body: `${items.length} pilihan · pilih fitur untuk membuka submenu`
+  }).catch(() => undefined)
+
+  if (mode === 'button' && items.length > PAGE_SIZE) {
+    const pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
+    const p = Math.min(Math.max(0, Number(page) || 0), pages - 1)
+    const buttons = items.slice(p * PAGE_SIZE, p * PAGE_SIZE + PAGE_SIZE)
     if (p > 0) buttons.unshift({ title: `⬅️ Hal ${p}`, description: '', id: `${idPrefix}:${p - 1}` })
     if (p < pages - 1) buttons.push({ title: `➡️ Hal ${p + 2}/${pages}`, description: '', id: `${idPrefix}:${p + 1}` })
+    if (home) buttons.push(homeItem)
+    const note = `\n\n📄 Halaman *${p + 1}/${pages}* · ${items.length} menu`
+    return await m.sendMenu({ text: text + note, title, items: buttons.slice(0, 10), contextInfo })
   }
-  if (home) buttons.push({ title: '🏠 Menu Utama', description: '', id: 'act:menu:main' })
-  const note = pages > 1 ? `\n\n📄 Halaman *${p + 1}/${pages}* (total ${items.length} menu)` : ''
-  return await m.sendMenu({ text: text + note, title, items: buttons.slice(0, 10) })
+
+  if (mode === 'list' && items.length + (home ? 1 : 0) > 100) {
+    const pages = Math.max(1, Math.ceil(items.length / LIST_PAGE_SIZE))
+    const p = Math.min(Math.max(0, Number(page) || 0), pages - 1)
+    const rows = items.slice(p * LIST_PAGE_SIZE, p * LIST_PAGE_SIZE + LIST_PAGE_SIZE)
+    if (p > 0) rows.push({ title: '⬅️ Halaman sebelumnya', description: `Kembali ke halaman ${p}`, id: `${idPrefix}:${p - 1}` })
+    if (p < pages - 1) rows.push({ title: '➡️ Halaman selanjutnya', description: `Lanjut ke halaman ${p + 2}/${pages}`, id: `${idPrefix}:${p + 1}` })
+    if (home) rows.push(homeItem)
+    const note = `\n\n📄 Halaman *${p + 1}/${pages}* · ${items.length} menu`
+    return await m.sendMenu({ text: text + note, title, items: rows, contextInfo })
+  }
+
+  const visible = [...items]
+  if (home && !visible.some(x => x.id === homeItem.id)) visible.push(homeItem)
+  return await m.sendMenu({ text, title, items: visible, contextInfo })
 }
 
 export async function sendMainMenu (m, page = 0) {
   const cats = [...categories().keys()].sort()
   const total = listPlugins().length
-  const text = `Halo *@${m.sender.split('@')[0]}* 👋
-
-Selamat datang di *${config.bot.name}* — bot WhatsApp Multi Device dengan tombol interaktif, button list, dan AI Rich message.
-
-▸ *Prefix:* \`${config.display.prefix}\`
-▸ *Mode Menu:* ${resolveMenuMode(m.isGroup)}
-▸ *Total Fitur:* ${total} perintah / ${cats.length} kategori
-▸ *Limit:* ${m.userDB.limit}${m.isPremium ? ' (♾️ premium)' : ''}
-▸ *Jam:* ${clockString()} WIB
-
-Pilih submenu di bawah (SEMUA kategori ada di button list), atau ketik \`${config.display.prefix}allmenu\` untuk melihat seluruh fitur.`
+  const u = m.userDB || {}
+  const akun = m.isOwner ? '👑 OWNER' : u.premium ? '💎 PREMIUM' : '🆓 GRATIS'
+  const daftar = u.registered ? '✅ Terdaftar' : `⚪ Belum daftar · ${config.display.prefix}daftar`
+  const limit = m.isOwner || u.premium ? '∞ / tanpa batas' : Number(u.limit ?? 0).toLocaleString('id-ID')
+  const modeBot = m.settings?.public === false ? 'SELF' : 'PUBLIC'
+  const text = [
+    `> 🤖 ${(config.bot.name || 'THERYHANN!').toUpperCase()} · WHATSAPP BOT`,
+    '',
+    '╭━━〔 ✨ MENU UTAMA 〕',
+    `│ 👋 Hai, *${truncate(String(m.pushName || 'kakak'), 50)}*!`,
+    `│ 👤 Akun : ${akun} · ${daftar}`,
+    `│ 🎟️ Limit: *${limit}*`,
+    `│ ⚙️ Mode : ${modeBot} · menu ${resolveMenuMode(m.isGroup).toUpperCase()}`,
+    `│ 🔣 Prefix: \`${config.display.prefix}\``,
+    `│ 🧩 Fitur: *${total}* perintah · ${cats.length} kategori`,
+    `│ ⏱️ Aktif: ${formatDuration(process.uptime() * 1000)}`,
+    `│ 🗓️ WIB : ${tanggalWIB()}`,
+    '╰────────────────',
+    '',
+    'Pilih kategori atau buka *Semua Menu* untuk melihat fitur lain.'
+  ].join('\n')
 
   const items = [
     { title: '📜 Semua Menu', description: `${total} perintah dalam 1 pesan`, id: 'act:menu:all' },
@@ -633,9 +734,7 @@ export async function sendCategoryMenu (m, cat, page = 0) {
   const list = categories().get(cat)
   if (!list?.length) return m.reply(`Kategori *${cat}* tidak ditemukan.\nKetik \`${config.display.prefix}menu\``)
   const p = config.display.prefix
-  const text = `*${catIcon(cat)} ${cat.toUpperCase()}* (${list.length} perintah)\n\n` + list
-    .map(c => `▸ \`${p}${c.command[0]}\` — ${c.description || '-'}`)
-    .join('\n')
+  const text = `*${catIcon(cat)} ${cat.toUpperCase()}* · ${list.length} perintah\nPilih perintah dari daftar untuk menjalankannya:`
 
   const items = list.map(c => ({
     title: `${p}${c.command[0]}`,
@@ -680,24 +779,21 @@ export async function sendAllMenu (m) {
   return undefined
 }
 
-export async function sendOwnerMenu (m) {
+export async function sendOwnerMenu (m, page = 0) {
   const list = listPlugins().filter(p => p.category === 'Owner Menu')
   const p = config.display.prefix
-  const text = `*👑 OWNER / DEVELOPER MENU*\n\n` +
-    list.map(c => `▸ \`${p}${c.command[0]}\` — ${c.description || '-'}`).join('\n')
+  const text = `*👑 OWNER / DEVELOPER MENU*\n\n${list.map(c => '▸ ' + p + c.command[0] + ' — ' + (c.description || '-')).join('\n')}`
   const items = list.map(c => ({ title: `${p}${c.command[0]}`, description: c.description || '', id: `${p}${c.command[0]}` }))
-  items.push({ title: '⬅️ Kembali', description: '', id: 'act:menu:main' })
-  return await m.sendMenu({ text, title: 'Owner Menu', items })
+  return await sendPagedMenu(m, { text, title: 'Owner Menu', items, page, idPrefix: 'act:menu:owner' })
 }
 
-export async function sendAIMenu (m) {
+export async function sendAIMenu (m, page = 0) {
   const list = listPlugins().filter(c => c.category === 'AI Menu')
   const p = config.display.prefix
-  const text = `*🤖 AI MENU*\n\n` + list.map(c => `▸ \`${p}${c.command[0]}\` — ${c.description || '-'}`).join('\n')
+  const text = `*🤖 AI MENU*\n\n${list.map(c => '▸ ' + p + c.command[0] + ' — ' + (c.description || '-')).join('\n')}`
   const items = list.map(c => ({ title: `${p}${c.command[0]}`, description: c.description || '', id: `${p}${c.command[0]}` }))
-  items.push({ title: '🔁 Toggle Auto AI', description: 'AI balas otomatis tanpa prefix', id: 'act:ai:toggle' })
-  items.push({ title: '⬅️ Kembali', description: '', id: 'act:menu:main' })
-  return await m.sendMenu({ text, title: 'AI Menu', items })
+  items.unshift({ title: '🔁 Toggle Auto AI', description: 'AI balas otomatis tanpa prefix', id: 'act:ai:toggle' })
+  return await sendPagedMenu(m, { text, title: 'AI Menu', items, page, idPrefix: 'act:menu:ai' })
 }
 
 /* ------------------------------------------------------------------ */

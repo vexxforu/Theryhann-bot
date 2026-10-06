@@ -25,11 +25,11 @@ export const config = {
     usePairingCode: envBool('USE_PAIRING', null),
     footer: '© THERYHANN! • WhatsApp Bot MD',
     wm: 'THERYHANN!',
-    version: '7.36.0'
+    version: '7.37.0'
   },
 
   // versi singkat (dipakai menu/info/changelog)
-  version: '7.36.0',
+  version: '7.37.0',
   build: 'stable',
 
   // ---------------- OWNER ----------------
@@ -52,12 +52,10 @@ export const config = {
     //  'auto'   -> list di chat pribadi, button di grup
     //  'text'   -> menu teks biasa (paling aman, pasti tampil)
     menuMode: 'auto',
-    // Gambar header menu. Kosongkan ('') supaya menu 100% cepat & anti gagal,
-    // karena header gambar butuh upload media (ffmpeg: `pkg install ffmpeg -y`).
-    menuImage: '',
-    thumbnail: 'https://files.catbox.moe/gfiq9p.jpg',
-    // gambar header .menu (file lokal lebih andal; kalau hilang, pakai thumbnail URL di atas)
+    // Gambar pratinjau link menu. Bisa URL, path lokal, banner, atau 'none'.
+    // Gambar lokal/banner ditampilkan sebagai thumbnail externalAdReply.
     menuImage: 'media/menu.jpg',
+    thumbnail: 'https://files.catbox.moe/gfiq9p.jpg',
     readCommand: false, // bot membaca pesan command (centang biru)
     typing: true, // efek "sedang mengetik..."
     public: true, // false = only owner (self mode)

@@ -1,6 +1,6 @@
 {
   "name": "theryhann-bot",
-  "version": "7.31.0",
+  "version": "7.37.0",
   "description": "WhatsApp bot multi-fitur (1437 perintah) — interactive, button list, AIRich, RPG, Islami. Jalan di Termux.",
   "main": "index.js",
   "type": "module",

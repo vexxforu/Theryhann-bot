@@ -166,9 +166,12 @@ let reconnectAttempt = 0
 let qrCount = 0
 let pairingAsked = false
 let reloginCount = 0
+let pernahOpen = false // pernah 'open' di percobaan ini?
+let deadSesi = 0       // berapa kali sesi bangkai dibuang
 
 async function startBot () {
   const { botNum, ownerNum } = validateConfig()
+  pernahOpen = false
   banner()
 
   // ---------- pilih cara login: QR atau PAIRING ----------
@@ -265,12 +268,16 @@ async function startBot () {
   async function requestPairing () {
     if (!usePairing || !pairingNumber || sock.authState?.creds?.me) return
     let code = null
+    let errTerakhir = ''
     for (let attempt = 1; attempt <= 3 && !code; attempt++) {
       try {
         if (attempt > 1) await sleep(4000)
         code = await sock.requestPairingCode(pairingNumber)
       } catch (e) {
-        log.warn(`Minta pairing code gagal (percobaan ${attempt}/3):`, e.message)
+        errTerakhir = String(e?.message || e)
+        log.warn(`Minta pairing code gagal (percobaan ${attempt}/3):`, errTerakhir)
+        /* rate-overlimit: mengulang hanya memperberat limit — stop dulu */
+        if (/overlimit|rate|too many/i.test(errTerakhir)) break
       }
     }
     if (code) {
@@ -283,6 +290,12 @@ async function startBot () {
       console.log(chalk.gray('   Kode berlaku ±60 detik. Gagal? ulangi: node index.js --pairing ' + pairingNumber + '\n'))
       try { setSetting('loginMode', 'pairing') } catch {}
     } else {
+      if (/overlimit|rate|too many/i.test(errTerakhir)) {
+        log.error('⏳ WhatsApp MEMBATASI permintaan kode pairing (rate-overlimit) untuk nomor ini.')
+        log.error('   JANGAN restart berulang! Tunggu ±1 jam (limit pulih sendiri),')
+        log.error('   lalu Deployments → ⋮ → Restart SEKALI, dan langsung ketik kode dari /pair (<60 dtk).')
+        log.error('   Alternatif tanpa pairing: pasang env SESSION_DATA (export sesi dari Termux: bash scripts/sesi-export.sh).')
+      }
       log.error('Tidak bisa membuat pairing code.')
       log.error('Penyebab umum: internet Termux tidak stabil, nomor bot salah/belum terdaftar WA,')
       log.error('atau slot Perangkat Tertaut penuh (maks 4 — hapus yang tidak dipakai di HP bot).')
@@ -330,6 +343,7 @@ async function startBot () {
 
     if (connection === 'open') {
       reconnectAttempt = 0
+      pernahOpen = true
       const me = sock.user?.id?.replace(/:\d+@/, '@') || ''
       health.status = 'tersambung'; health.me = me.split('@')[0]; health.pairingCode = ''; health.lastQr = ''
       const meNum = me.split('@')[0]
@@ -371,6 +385,19 @@ async function startBot () {
       )
       if (shouldReconnect) {
         reconnectAttempt++
+        /* v7.37.1: sesi lama yang sudah mati di server WA bikin loop
+           reconnect (408) tanpa pernah memunculkan QR -> pairing code
+           tidak keluar. Setelah 3x reconnect tanpa pernah 'open',
+           buang sesi itu biar QR + pairing code dibuat baru. */
+        if (usePairing && !pernahOpen && reconnectAttempt >= 3 && deadSesi < 2 && fs.existsSync(sessionFile)) {
+          deadSesi++
+          try { fs.rmSync(SESSION_DIR, { recursive: true, force: true }) } catch {}
+          reconnectAttempt = 0; pairingAsked = false; qrCount = 0; pernahOpen = false
+          log.warn('Sesi lama tampak mati (reconnect berulang, tidak pernah tersambung) — sesi dihapus.')
+          log.info('Membuat sesi baru — PAIRING CODE akan muncul di bawah / di halaman /pair.')
+          setTimeout(() => startBot().catch(e => log.error(e.message)), 2000)
+          return
+        }
         const delay = Math.min(30000, 2000 * reconnectAttempt)
         setTimeout(() => startBot().catch(e => log.error(e.message)), delay)
       } else {

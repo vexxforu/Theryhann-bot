@@ -99,9 +99,9 @@ export const play2 = {
       await sendHtmlApp(m.sock, m.jid, { title: `🟢 PLAY2 · ${truncate(q, 30)}`, html, trustedSources: [...TRUSTED_LIVE, ...(hostStream() ? [hostStream()] : [])] }); viaHtml = true
     } catch (e) { await m.reply(`⚠️ Kartu gagal dikirim (${truncate(String(e.message || e), 80)}) — audio tetap dikirim.`) }
     /* audio WA lagu pertama (penuh bila bisa) — seperti .play3 */
-    let viaAudio = false, t1 = null
-    try { t1 = hasil[0]; const A = await siapkanAudio(t1, 'play2', modePilih); viaAudio = await kirimAudioWA(m, t1, A.audio, A.mime, 'play2') } catch (e) { console.error('[play2] audio:', e.message) }
-    return m.reply(`🟢 *PLAY2 · SPOTIFY* — "${q}"\n\n${tracks.map((t, i) => `${i + 1}. ${t.judul} — ${t.artis}${t.lirik?.length ? ' 🎤' : ''}`).join('\n')}\n\n${viaHtml ? '• Ketuk lagu / ▶ di kartu → vinyl berputar, lirik jalan\n• Ketik judul lain di kotak *"Apa yang ingin kamu putar?"* → ganti lagu tanpa keluar kartu\n' : ''}${viaAudio ? '• Audio lagu #1 dikirim di atas 🎧\n' : ''}${modePilih === 'full' && t1 && !t1.penuh ? `⚠️ Lagu penuh gagal — dikirim preview.\nAlasan: ${(t1.alasanFull || []).join(' · ').slice(0, 200)}\n` : ''}• \`${P}play2 next\` · \`${P}play2 vibe ${truncate(q, 20)}\` · \`${P}play2 kartu ${truncate(q, 20)}\``)
+    let viaAudio = false
+    try { const t = hasil[0]; const A = await siapkanAudio(t, 'play2', modePilih); viaAudio = await kirimAudioWA(m, t, A.audio, A.mime, 'play2') } catch (e) { console.error('[play2] audio:', e.message) }
+    return m.reply(`🟢 *PLAY2 · SPOTIFY* — "${q}"\n\n${tracks.map((t, i) => `${i + 1}. ${t.judul} — ${t.artis}${t.lirik?.length ? ' 🎤' : ''}`).join('\n')}\n\n${viaHtml ? '• Ketuk lagu / ▶ di kartu → vinyl berputar, lirik jalan\n• Ketik judul lain di kotak *"Apa yang ingin kamu putar?"* → ganti lagu tanpa keluar kartu\n' : ''}${viaAudio ? '• Audio lagu #1 dikirim di atas 🎧\n' : ''}• \`${P}play2 next\` · \`${P}play2 vibe ${truncate(q, 20)}\` · \`${P}play2 kartu ${truncate(q, 20)}\``)
   }
 }
 export default { play2 }

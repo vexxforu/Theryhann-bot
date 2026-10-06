@@ -55,6 +55,7 @@ import { candyHtml, templeHtml, angryHtml, marioHtml, ARCADE_6 } from '../lib/ht
 import { beatHtml, menaraHtml, bubbleHtml, cacingHtml, sushiHtml, ARCADE_7 } from '../lib/htmlgames13.js'
 import { ARCADE_8 } from '../lib/htmlgames14.js'
 import { ARCADE_9 } from '../lib/htmlgames15.js'
+import { guitarFlashHtml } from '../lib/htmlgamesguitarflash.js'
 
 const P = config.display.prefix
 const brand = () => config.bot?.name || 'theryhann!'
@@ -177,6 +178,13 @@ export const asteroidsNeon = game('asteroids', ['asteroidsneon', 'batuangkasa', 
   'Asteroids Neon', asteroidsHtml,
   'Asteroids Neon — putar & dorong pesawat, tembak batu sampai pecah, ▼ lompat ruang (3 nyawa)')
 
+/* ---------------- game ritme (v7.37.0) ---------------- */
+export const guitarFlash = game('guitarflash',
+  ['guitarhero', 'guitar', 'gitarflash', 'gitarhero', 'mainigitar', 'pianohero', 'gitarritme', 'gitarneon'],
+  'Guitar Flash', guitarFlashHtml,
+  'Guitar Flash — game ritme 4 lajur: pilih lagu & tingkat, pukul note (D F J K / tap) ' +
+  'tepat di garis pukul, kumpulkan combo + STAR POWER 2×')
+
 /** daftar semua game arcade (dipakai menu & test) */
 export const DAFTAR_ARCADE = [
   { id: 'gd', cmd: 'gd', icon: '🟦', nama: 'Geometry Dash Mini', ket: 'cube double-jump hindari rintangan', html: gdMiniHtml },
@@ -221,7 +229,16 @@ export const DAFTAR_ARCADE8 = ARCADE_8
 export const DAFTAR_ARCADE9 = ARCADE_9
 
 /** semua game (9 klasik + 5 v7.2 + 7 v7.3 + 3 v7.8.3) — dipakai .arcadelist & test */
-export const DAFTAR_ARCADE_ALL = [...DAFTAR_ARCADE, ...DAFTAR_ARCADE2, ...DAFTAR_ARCADE3, ...DAFTAR_ARCADE5, ...DAFTAR_ARCADE6, ...DAFTAR_ARCADE7, ...DAFTAR_ARCADE8, ...DAFTAR_ARCADE9]
+/** v7.37.0: game ritme — Guitar Flash (4 lajur, pilih lagu, note sesuai ketukan) */
+export const DAFTAR_ARCADE10 = [
+  {
+    id: 'guitarflash', cmd: 'guitarflash', icon: '🎸', nama: 'Guitar Flash',
+    ket: 'pilih lagu · pukul note 4 lajur sesuai ritme · combo & STAR POWER',
+    ratio: '480×760', html: guitarFlashHtml
+  }
+]
+
+export const DAFTAR_ARCADE_ALL = [...DAFTAR_ARCADE, ...DAFTAR_ARCADE2, ...DAFTAR_ARCADE3, ...DAFTAR_ARCADE5, ...DAFTAR_ARCADE6, ...DAFTAR_ARCADE7, ...DAFTAR_ARCADE8, ...DAFTAR_ARCADE9, ...DAFTAR_ARCADE10]
 
 /* ---- v7.8.3: submenu 3 game rupa asli ---- */
 export const arcadeMenu5 = {
@@ -516,5 +533,6 @@ export default {
   breakoutNeon, spaceShooter, dinoRun, tetrisNeon, pongNeon, neonJump,
   froggerNeon, mazeNeon, neonRacer, tankNeon, neonHunt,
   blockBlastNeon, caturNeon, minesweeperNeon, asteroidsNeon,
+  guitarFlash, DAFTAR_ARCADE10,
   arcadeMenu, arcadeList, arcadeMenu2, arcadeList2, arcadeMenu3, arcadeList3
 }

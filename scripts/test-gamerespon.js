@@ -94,7 +94,7 @@ check('7 game casino/jadul terdaftar sebagai HTML app (punya fn html)',
 /* ---------- hub ---------- */
 console.log('\n🧩 Hub .gamerespon')
 const n = jumlahGame()
-check('jumlah arcade 65 (…+10 multiplayer+15 cerita)', n.arcade === 65, n.arcade)
+check('jumlah arcade 66 (…+10 multiplayer+15 cerita+1 ritme v7.37)', n.arcade === 66, n.arcade)
 check('jumlah pastel 10 (5 v7.5 + 5 v7.6)', n.pastel === 10, n.pastel)
 check('jumlah kasino RPG 5 (v7.6)', n.kasinoRpg === 5, n.kasinoRpg)
 check('jumlah casino 9 (4 chip + 5 RPG)', n.casino === 9, n.casino)

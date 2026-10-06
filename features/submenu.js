@@ -17,6 +17,7 @@
  */
 import { config } from '../config.js'
 import { findPlugin, categories } from '../lib/plugins.js'
+import { sendPagedList, menuPageIndex } from '../lib/menupaging.js'
 import { truncate } from '../lib/functions.js'
 import { ARCADE_9 } from '../lib/htmlgames15.js'
 import { daftarLab } from './gamerespon.js'
@@ -103,10 +104,6 @@ export function sectionsGame () {
     { t: '💬 TEBAK-TEBAKAN', cmds: ['akinator', 'akinstop', 'tebakheroml', 'heroml', 'tebakangka', 'tebakkata', 'tebakemoji', 'tebakbendera', 'tebakhewan', 'tebahewan', 'tebakbuah', 'tebakkotanegara', 'tebaktahun', 'tebakwarna', 'tebakurutan', 'tebakkarakter', 'tebakprofesi', 'tebakmatematika', 'asahotak', 'katarahasia', 'acakkata', 'sambungkata', 'lawankata', 'singkatanapa', 'lengkapiperibahasa', 'family100', 'bocoran'] },
     { t: '🧠 KUIS', cmds: ['kuisacak', 'kuisberuntun', 'hitungcepat', 'kuishitungcepat', 'memoriangka', 'benarsalah', 'gantungman', 'kuisnegara', 'kuisibukota', 'kuisbendera', 'kuisuang', 'kuisbahasa', 'kuisprovinsi', 'kuishewan', 'kuisgunung', 'kuislaut', 'kuismakanan', 'kuissejarah', 'kuisolahraga', 'kuisfilm', 'kuislirik', 'kuisilmu', 'kuisgeografi', 'kuisaritmatika', 'kuispecahan', 'kuisanagram', 'kuiskode', 'kuislogika', 'kuissurah', 'kuisayat', 'kuisnabi', 'kuisasmaul', 'kuissingkatan', 'kuisunsur', 'kuisatom', 'kuisgolongan'] },
     { t: '🎲 LAWAN & KEBERUNTUNGAN', cmds: ['suit', 'tictactoe', 'guntinggrup', 'roletgrup', 'dadudouble', 'dadutiga', 'lemparkoin3', 'pilikartu', 'kocoknama', 'angkahoki2'] },
-    { t: '🎺 TEBAK BARU v7.37', cmds: ['tebakalatmusik', 'tebakjajanan', 'tebakminuman', 'tebaksayur', 'tebakbunga', 'tebaktanaman', 'tebakburung', 'tebakikan', 'tebakserangga', 'tebakdino', 'tebakplanet', 'tebaksungai', 'tebakcandi', 'tebakpahlawan', 'tebakpresiden', 'tebakkotadunia', 'tebaktarian', 'tebaklagudaerah', 'tebakatlet', 'tebakdrakor'] },
-    { t: '🪐 KUIS BARU v7.37', cmds: ['kuisplanet', 'kuisdino', 'kuisbenua', 'kuissungai', 'kuiscandi', 'kuispahlawan', 'kuispresiden', 'kuiskotadunia', 'kuistarian', 'kuislagudaerah', 'kuisalatmusik', 'kuisjajanan', 'kuisvitamin', 'kuisatlet', 'kuisdrakor', 'kuisanime', 'kuisvideogame', 'kuisburung', 'kuisikan', 'kuisserangga'] },
-    { t: '➕ MATEMATIKA KILAT', cmds: ['tambahcepat', 'kurangcepat', 'kalicepat', 'bagicepat', 'pangkatcepat', 'akarkuadrat', 'pecahancepat', 'persencepat', 'tebakpola', 'suhucepat'] },
-    { t: '📖 KATA & SANDI', cmds: ['sinonimcepat', 'tebakantonim', 'acakkalimat', 'tebakistilah', 'tebaksandi', 'sandiangka', 'tebakmotto', 'tebakiklan', 'tebakpenyanyi', 'tebakbandara'] },
     { t: '💵 KASINO TEKS · uang RPG', cmds: ['slot', 'slotbet', 'slotinfo', 'slotriwayat', 'daduinfo', 'kasinoinfo', 'kenoinfo', 'roletinfo', 'hit21', 'stand21', 'double21', 'batal21'] },
     { t: '🧠 LAB AI RICH', rows: lab.map(g => ({ title: truncate(`${g.icon} ${g.nama}`, 60), description: truncate(g.ket || '', 70), id: `${P}${g.cmd}` })), cmds: ['airichgamelab', 'airichbantuan', 'airichstatistik', 'airichleaderboard', 'airichtes', 'airichriwayat', 'airichreset', 'gameairich', 'kuisairich', 'suitairich', 'tttairich', 'batalairich', 'batalairichlab', 'mainlagi'] },
     { t: '🏆 PAPAN SKOR', cmds: ['lbmenu', 'lbgame', 'topgame', 'rankgame', 'setorskore', 'topplayer', 'toprpg', 'topfun', 'topkaya', 'toplevel', 'totalchat', 'topguild', 'lblist', 'lbinfo', 'kartuskor', 'skorimg'] },
@@ -239,7 +236,15 @@ const kirimSubmenu = (judul, emoji, sections, ket) => async m => {
   const total = sections.reduce((a, s) => a + s.rows.length, 0)
   const text = `${emoji} *${judul} — ${total} fitur*\n${ket}\n\nPilih untuk langsung menjalankan:`
   try {
-    await m.sendList({ title: `${emoji} ${judul}`, text, footer: brand(), buttonText: `${emoji} ${judul}`, sections })
+    await sendPagedList(m, {
+      title: `${emoji} ${judul}`,
+      text,
+      footer: brand(),
+      buttonText: `${emoji} ${judul}`,
+      sections,
+      page: menuPageIndex(m),
+      command: `${P}${m.command || 'menugame'}`
+    })
   } catch {
     await m.reply(`*${emoji} ${judul} (${total})*\n\n` + sections.map(s => `*${s.title}*\n` + s.rows.map(r => `▸ ${r.id}`).join('\n')).join('\n\n'))
   }

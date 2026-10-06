@@ -70,7 +70,7 @@ export const play3 = {
         `🟢 *${t.judul}*\n${t.artis}${t.album ? ` · _${t.album}_` : ''}\n⏱️ ${fmt(t.durasiAsli)} · ${t.sumber}\n\n` +
         `${r.viaHtml ? 'Pemutar ada di atas ☝️ — ketuk ▶, ketuk cover untuk lirik.' : '⚠️ Kartu HTML tidak terkirim.'}` +
         `${r.viaAudio ? `\n🎵 File audio${r.penuh ? ' penuh' : ''} juga dikirim.` : '\n❌ File audio gagal dikirim.'}` +
-        `${modePilih === '30' ? '\n⏱️ Mode 30 detik (sesuai pilihan).' : (r.penuh ? (t.kartuPreview ? '\n🔊 File full dikirim di atas — kartu memakai preview (pasang ffmpeg agar kartu ikut full).' : '') : `\n⚠️ Lagu penuh gagal — dikirim preview 30 dtk.${(t.alasanFull || []).length ? `\nAlasan: ${t.alasanFull.join(' · ').slice(0, 220)}` : ''}`)}` +
+        `${modePilih === '30' ? '\n⏱️ Mode 30 detik (sesuai pilihan).' : (r.penuh ? '' : `\n⚠️ Lagu penuh gagal diambil dari semua sumber — coba lagi nanti.`)}` +
         `${r.lirik ? `\n📝 Lirik: ${r.lirik.baris} baris${r.lirik.sinkron?.length ? ' (sinkron)' : ''}` : '\n📝 Lirik tidak ditemukan di LRCLIB'}` +
         `${lain.length ? `\n\n*Hasil lain:*\n${lain.map((x, i) => `${i + 2}. ${x.judul} — ${x.artis}`).join('\n')}` : ''}`
       return m.sendButtons({

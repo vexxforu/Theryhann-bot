@@ -1,3 +1,35 @@
+# 🧪 HASIL TEST — THERYHANN! Bot v7.37.0
+
+**Offline**, tanpa koneksi WhatsApp · 12 September 2026 · **1637 plugin / 5661 alias** · **0 FAIL**.
+
+## 🆕 Milestone v7.37.0
+
+| Suite | PASS / FAIL | Yang diuji |
+|---|---|---|
+| `test-cateof.js` | **55 / 0** | `.cateof` heredoc (`<<EOF` `<<-EOF` `<<<EOF` `<<'EOF'` `<<BATAS`), baris baru & indentasi utuh, `.js` otomatis jadi plugin, `.json`/`.md` hormati ekstensi, gerbang: cek sintaks sebelum ditulis, tolak file inti, tolak `../`, `FILE_DILINDUNGI` butuh `--paksa`, non-owner ditolak; `.autocat` parser + jalur AI gagal yang rapi; semua file uji dibersihkan lagi |
+| `test-fixbutton.js` | **57 / 0** | `.fixbutton` AI → button list: 4 gerbang (cek sintaks, wajib `export`/`command`/`run`, wajib pakai tombol, deteksi fungsi hilang), tanpa `--pasang` tidak menyimpan, AI gagal ditangani rapi; `.curl` parser + anti-SSRF + GET sungguhan |
+| `test-tobuttonpremium.js` | **64 / 0** | `.tobutton` urai `<fitur>: <judul> \| button N: <teks>`, pasang/reset, overlay tombol benar-benar terkirim saat fitur dipakai; `.topremium` kunci → user free **ditolak**, owner & premium lolos, reset; pratinjau `.editfitur` |
+| `test-uno.js` | **152 / 0** | UNO chat: dek 108 kartu, aturan lengkap (Skip/Reverse/Draw Two menumpuk, Wild+4, UNO!/denda, kocok ulang), E2E lewat `messageHandler` sampai ada pemenang, meja 8 pemain, TTL |
+| `test-unohtml.js` | **67 / 0** | UNO HTML 1 vs 3 AI di DOM palsu: main sampai tamat, 7 kartu tiap pemain, pemilih warna Wild, AMBIL melewatkan giliran, hukuman ditagih, tombol UNO!, keyboard, MAIN LAGI, skor |
+| `test-editfitur.js` | **63 / 0** | Studio `.editfitur`: 5 tab (TEKS/TOMBOL/LIST/KODE/PANDUAN), pratinjau gelembung WA, salin ke clipboard, toast, alur perintah + koreksi nama fitur |
+| `test-guitarflash.js` | **148 / 0** | Guitar Flash: 5 lagu × 3 kesulitan, chart sesuai BPM, hold/hammer/chord/solo, multiplier, whammy, star power, band death + recovery |
+| `test-htmlapp.js` | **371 / 0** | Kerangka kartu HTML + semua game arcade |
+| `test-gamerespon.js` | **70 / 0** | Hub `.gamerespon` (baris UNO chat + UNO HTML) |
+| `test-premium.js` | **53 / 0** | Gerbang premium, klaim, kartu premium |
+| `test-menu.js` | **30 / 0** | Menu anti-duplikasi + template |
+
+### Audit
+| Pemeriksaan | Hasil |
+|---|---|
+| `audit-alias.js` | **1637 plugin · 5661 alias · 0 perpindahan · 0 hilang** |
+| `MANIFEST.sha` | **361/361 hash cocok** (`sha256sum -c`), 32 file baru tercatat |
+| Payload HTML | `.unohtml` 29,7 KB · `.guitarflash` 50,4 KB — bersih dari `position:fixed`, `100vh`, `aspect-ratio`, CDN, backtick |
+
+### Catatan stabilitas
+Tiga asersi yang dulu flaky sudah diperbaiki **di sisi test** (bukan fiturnya): `test-uno` "kartu Wild dimainkan" dan "pemain terpaksa ambil" kini memprioritaskan Wild / menerima partai pendek, dan `test-unohtml` "pemilih warna Wild" batas percobaannya 12 → 40. Ketiganya diuji ulang 12-15 run berturut-turut tanpa gagal.
+
+---
+
 # 🧪 HASIL TEST — THERYHANN! Bot v7.8.2
 
 **Offline** · 5 September 2026 · **1265 command** · **0 FAIL**.

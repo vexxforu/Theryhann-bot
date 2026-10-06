@@ -1,13 +1,19 @@
 # 📚 DAFTAR FITUR THERYHANN! v7.37.0
 
 
-## 🆕 v7.37.0 — 230 fitur baru (70 RPG + 60 game + 50 fun + 50 grup)
+## 🆕 v7.37.0 — UNO (chat + HTML vs 3 AI), Guitar Flash, studio tombol AI, `.curl`, `.cateof`
 | Perintah | Fungsi |
 |---|---|
-| 70× profesi & aksi RPG (`.menurpg`): `.ngojek` `.nguli` `.melaut` `.berladang` `.angon` `.nambangemas` `.tukangkayu` `.asongan` `.ngamen` `.parkir` `.buruh` `.satpam` `.medis` `.ngajar` `.sopir` `.mekanik` `.penjahit` `.chef` `.barista` `.penyelam` `.pemburuhantu` `.susurgua` `.panjatmenara` `.tarungjalan` `.arenagladiator` `.misirahasia` `.tugasdesa` `.pushup` `.meditasi` `.kursus` `.lembur` `.bonuskerja` `.investasikecil` `.sahamrpg` `.arisan` `.jaringikan` `.panenraya` `.semai` `.pupuk` `.cukurbulu` `.erami` `.jinakkan` `.ajakmainpet` `.panggang` `.goreng` `.bbq` `.ukir` `.anyam` `.jahit` `.sulap` `.tenung` `.pijat` `.cukur` `.laundryrpg` `.kurir` `.ojol` `.hansip` `.pakrt` `.gotongroyong` `.ronda` `.upacara` `.piket` `.kantin` `.fotografer` `.ngedesain` `.nulis` `.ngoding` `.youtuberrpg` `.joget` `.ojekpayung` | ⚔️ Kerja/kasino-petualangan mini: tiap perintah kasih koin + EXP, cooldown sendiri, syarat level, narasi acak id-ID. Lengkap: nguli–ojekpayung (70, lihat `.menurpg`) |
-| 20× tebak `.tebakalatmusik` s.d. `.tebakdrakor` + 20× `.kuisplanet` s.d. `.kuisserangga` + 10× matematika `.tambahcepat` s.d. `.suhucepat` + 10× kata `.sinonimcepat` s.d. `.tebakbandara` | 🎮 60 game teks sesi 120 detik, hadiah koin+EXP otomatis via `.batalgame` `/ Main Lagi` (lihat `.menugame`) |
-| 15× `.cekvibes` s.d. `.ceksensitif` + 8× `.howmaskulin` s.d. `.howfomo` + 5× `.ramalkarier` s.d. `.ramalminggu` + 5× `.pantaskah` `.lanjutkah` `.balikan` `.resignkah` `.nikahkah` + 9 generator + 4 teks + 4 bank | 🎉 50 fun: persen harian stabil (bisa tag teman), ramalan + angka/warna hoki, dukun ya/tidak, arti mimpi, sambung pantun, nama panggung/klan/tim, username, bio, motto, vaporwave, uwu, pantun, misteri, creepypasta (lihat `.menufun`) |
-| `.kicknomor` `.kickbalas` `.addnomor` `.promotecepat` `.demotecepat` `.ceknomor` `.infomember` `.listnomor` `.profilgrup` `.tagrandom` `.tagowner` `.bagibill` `.teambagi` `.daftarantri` `.setujuigabung` `.tolakgabung` `.modeapprove` `.kas` `.iurankas` `.ambilkas` `.riwayatkas` `.denda` `.cekdenda` `.bayardenda` `.hapusdenda` `.tambahbarang` `.hapusbarang` `.daftarbarang` `.tambahagenda` `.hapusagenda` `.daftaragenda` `.formatkenalan` `.kenalan` `.daftarkenalan` `.laporadmin` `.daftarlaporan` `.kotaksaran` `.daftarsaran` `.catatultah` `.ultahhariini` `.daftarultah` `.catathutang` `.bayarhutang` `.daftarhutang` `.mainbareng` `.ikutmain` `.batalmain` `.daftarmain` `.poling` `.menfess` | 👥 50 perkakas grup: moderasi cepat, persetujuan gabung, kas & denda (koin RPG), inventaris, agenda, kenalan, lapor/saran, ultah, hutang, main bareng, polling native, menfess anonim (lihat `.menugroup`) |
+| `.uno` | 🃏 UNO multiplayer di chat (2-8 member): `.unoikut` `.unomulai` `.unomain <n> [warna]` `.unoambil` `.unoskip` `.unowarna` `.unostatus` `.unobubar` (alias: `.unogame` `.mainuno` `.unocard` `.kartuuno` `.unomulti` `.unomultiplayer`) |
+| `.unohtml` | 🎴 UNO kartu interaktif, 1 pemain vs 3 AI — hukuman menumpuk, tombol UNO!, klik/D-pad/keyboard, skor tersimpan (alias: `.unocardhtml` `.unogamehtml` `.unokartuhtml` `.mainunohtml` `.unoai` `.unosolohtml`) |
+| `.guitarflash` | 🎸 Guitar Flash ritme gitar: 5 lagu × 3 kesulitan, 4 lajur, hold/hammer/chord/solo, multiplier, whammy, star power (alias: `.guitarhero` `.guitar` `.gitarflash` `.gitarhero` `.mainigitar` `.pianohero` `.gitarritme` `.gitarneon`) |
+| `.tobutton <fitur>: <judul> \| button 1: <teks>` | 🔘 Ubah teks fitur jadi button list tanpa menulis ulang file (maks 6 tombol); `reset` untuk hapus (alias: `.jadibutton` `.buttonfitur` `.fiturbutton` `.ubahbutton` `.buttonlist`) |
+| `.topremium <fitur>` | 👑 Kunci fitur jadi khusus user premium; `reset` buka, `list` daftar, `status` cek (alias: `.premiumfitur` `.fiturpremium` `.kuncipremium` `.premiumlock`) |
+| `.fixbutton <fitur>` | 🤖 AI merapikan teks fitur jadi button list — 4 gerbang keamanan, `--pasang` untuk menyimpan, `--list` tanpa AI (alias: `.perbaikibutton` `.aibutton` `.buttonai` `.rapikanbutton` `.fixfiturbutton`) |
+| `.curl <url>` | 🌐 HTTP request dari chat: `\| method:POST` `\| header: Nama: nilai` `\| data: a=1` `\| head` `\| raw` `\| file` — owner-only + anti-SSRF (alias: `.httpget` `.ambilurl` `.fetchurl` `.geturl` `.requesturl`) |
+| `.cateof <file> <<EOF … EOF` | 📄 Tulis file gaya heredoc Termux dari chat; `.js` otomatis jadi plugin, cek sintaks dulu (alias: `.catheredoc` `.heredoc` `.tulisfile` `.buatfile` `.cateoffile`) |
+| `.autocat <file> \| <permintaan>` | 🪄 AI menulis isi file otomatis; `--pasang` untuk menyimpan (alias: `.catotomatis` `.buatfileotomatis` `.aifile` `.fileai` `.generatefile`) |
+| `.editfitur <fitur>` | 🛠️ **Diperbarui**: kini ada pratinjau sungguhan (teks / tombol / list) di bawah kartu studio + pintasan `.tobutton` & `.topremium` |
 
 ## 🆕 v7.35.0 — Duel turn-based, peti hoki, update anti-reset
 | Perintah | Fungsi |
@@ -136,24 +142,26 @@
 
 ## Ringkasan
 
-| Kategori | Jumlah | Contoh perintah |
-|---|---:|---|
-| 🎮 Games | 193 | `.gameairich` `.batalairich` `.kuisairich` `.suitairich` |
-| ⚔️ RPG Menu | 150 | `.berburu` `.battle` `.rpg` `.inv` |
-| 🛠️ Tools | 112 | `.airichtabel` `.airichkode` `.toimg` `.fancy` |
-| 🕌 Islami | 96 | `.sholat` `.kiblat` `.asmaulhusna` `.ayat` |
-| 👑 Owner Menu | 91 | `.addplugin` `.>_` `.cekplugin` `.getcode` |
-| 👥 Group Menu | 87 | `.group` `.groupinfo` `.kick` `.linkgroup` |
-| 🎲 Fun Menu | 78 | `.truth` `.howgay` `.jodoh` `.tebak` |
-| ⬇️ Downloader | 74 | `.tiktok` `.get` `.ss` `.ttaudio` |
-| ℹ️ Info Menu | 71 | `.airichunsur` `.airichnegara` `.ping` `.negara` |
-| 👤 User Menu | 67 | `.afk` `.ingatkan` `.hitsaya` `.claim` |
-| 🌟 Sticker Menu | 63 | `.stikerkutipan` `.stikernama` `.stikerperingatan` `.stikerucapan` |
-| 🤖 AI Menu | 62 | `.aiimg` `.airich` `.ai` `.delmem` |
-| 🌐 Internet | 62 | `.cuaca` `.google` `.kurs` `.wiki` |
-| 🏠 Main Menu | 57 | `.allmenu` `.rules` `.donate` `.listcmd` |
-| 📦 Premium | 13 | `.premmenu` `.premclaim` `.premcard` `.premminggu` |
-| **Total** | **1276** | |
+| Kategori | Plugin | Perintah+alias | Contoh |
+|---|---:|---:|---|
+| 🎮 Games | 279 | 1186 | `.uno` `.unohtml` `.guitarflash` |
+| ⚔️ RPG Menu | 174 | 650 | `.berburu` `.battle` `.rpg` |
+| 👑 Owner Menu | 137 | 473 | `.>_` `.cateof` `.fixbutton` |
+| ⬇️ Downloader | 103 | 402 | `.tiktok` `.get` `.ss` |
+| 👥 Group Menu | 107 | 363 | `.group` `.kick` `.linkgroup` |
+| 🛠️ Tools | 127 | 338 | `.toimg` `.fancy` `.curl` |
+| 🎲 Fun Menu | 90 | 320 | `.truth` `.howgay` `.jodoh` |
+| 🌟 Sticker Menu | 95 | 317 | `.stikerkutipan` `.stikernama` |
+| 🌐 Internet | 87 | 259 | `.cuaca` `.google` `.kurs` |
+| 🕌 Islami | 106 | 252 | `.sholat` `.kiblat` `.ayat` |
+| ℹ️ Info Menu | 80 | 251 | `.ping` `.negara` |
+| 👤 User Menu | 81 | 250 | `.afk` `.ingatkan` `.claim` |
+| 🤖 AI Menu | 72 | 236 | `.aiimg` `.airich` `.ai` |
+| 🏠 Main Menu | 71 | 227 | `.allmenu` `.rules` `.listcmd` |
+| 📦 Premium | 23 | 100 | `.premmenu` `.premclaim` `.topremium` |
+| **Total** | **1632** | **5624** | |
+
+_Angka dihitung langsung dari loader pada v7.37.0 (1632 plugin terdaftar menu, 5624 perintah+alias; total keseluruhan 1637 plugin / 5661 alias termasuk yang tersembunyi)._
 
 
 ---
