@@ -8,10 +8,16 @@ import { sendCarousel, sendList } from '../lib/interactive.js'
 import { menuImageContextInfo } from '../lib/menuimg.js'
 import { sendPagedList, menuPageIndex } from '../lib/menupaging.js'
 import { setMenuImg } from '../features/owner.js'
+import { costumName } from '../features/groupmenu.js'
+import { buildSosmedCards } from '../features/sosmed.js'
+import { daftarGaya } from '../lib/fancyfont.js'
 import { getSettings, setSetting } from '../lib/database.js'
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const JID = '6281234567890@s.whatsapp.net'
+const realFetch = globalThis.fetch
+const testPngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0])
+globalThis.fetch = async () => new Response(testPngHeader, { status: 200, headers: { 'content-type': 'image/png' } })
 let pass = 0, fail = 0
 function check (label, condition, detail = '') {
   if (condition) { pass++; console.log(`  ✔ ${label}`) }
@@ -96,11 +102,35 @@ console.log('\n[A] Pinterest Carousel')
   check('pesan interaktif gagal → fallback tetap mengirim gambar polos', result.sent === 1 && sent.some(x => x.content?.image && /Board 1/.test(x.content.caption)))
 }
 
+console.log('\n[A2] .cn tombol salin dan menu sosmed Carousel')
+{
+  let payload
+  let fallback = ''
+  const m = {
+    q: 'Arif', args: [],
+    async sendButtons (opt) { payload = opt; return opt },
+    async reply (text) { fallback = String(text); return text }
+  }
+  await costumName.run(m)
+  const styles = daftarGaya()
+  check('.cn <nama> menampilkan pilihan font sebagai quick buttons', payload?.buttons?.length >= 7 && payload.buttons[0].id === '.cn 1 Arif' && payload.buttons.some(b => b.id === '.cn page 2 Arif'))
+  m.q = payload.buttons[0].id.replace(/^\.cn\s+/, '')
+  let copyPayload
+  m.sendInteractive = async opt => { copyPayload = opt; return opt }
+  await costumName.run(m)
+  check('memilih gaya .cn menghasilkan tombol copy_code berisi nama bergaya', copyPayload?.copy?.[0]?.text === '📋 Salin Nama' && copyPayload.copy[0].code === styles[0].fn('Arif'))
+}
+{
+  const cards = await buildSosmedCards({ renderBanner: async options => Buffer.from(options.title) })
+  check('.sosmed membangun lima kartu bergambar untuk Carousel', cards.length === 5 && cards.every(card => Buffer.isBuffer(card.image) && card.buttons.length === 3))
+  check('kartu Pinterest memanggil .pin2 dan kartu video menyertakan command yang tersedia', cards[2]?.buttons[0]?.id === '.pin2' && cards[3]?.buttons.some(button => button.id === '.ytvideo'))
+}
+
 console.log('\n[B] Pratinjau gambar menu')
 {
   const url = 'https://cdn.example.test/menu-preview.jpg'
   const preview = await menuImageContextInfo({ image: url, title: 'Menu Uji', body: 'Tautan pratinjau' })
-  check('URL menu menjadi thumbnail dan target pratinjau', preview?.externalAdReply?.thumbnailUrl === url && preview.externalAdReply.sourceUrl === url)
+  check('URL menu dipakai sebagai thumbnail, buffer gambar, dan target pratinjau', preview?.externalAdReply?.thumbnailUrl === url && preview.externalAdReply.sourceUrl === url && Buffer.isBuffer(preview.externalAdReply.thumbnail))
   const local = await menuImageContextInfo({ image: 'media/menu.jpg', title: 'Menu Lokal' })
   check('gambar lokal menjadi thumbnail buffer pratinjau', Buffer.isBuffer(local?.externalAdReply?.thumbnail) && !!local.externalAdReply.sourceUrl)
   const disabled = await menuImageContextInfo({ image: 'none' })
@@ -118,16 +148,21 @@ console.log('\n[B] Pratinjau gambar menu')
       async reply (text) { reply = String(text); return text }
     }
     await setMenuImg.run(m)
-    check('.setmenuimg URL menyimpan setelan dan mengirim pratinjau link', getSettings().menuImage === m.q && sent[0]?.content?.contextInfo?.externalAdReply?.thumbnailUrl === m.q)
+    check('.setmenuimg URL menyimpan setelan dan mengirim pratinjau dengan thumbnail nyata', getSettings().menuImage === m.q && sent[0]?.content?.contextInfo?.externalAdReply?.thumbnailUrl === m.q && Buffer.isBuffer(sent[0]?.content?.contextInfo?.externalAdReply?.thumbnail))
     const urlBaru = 'https://cdn.example.test/menu-via-url-command.jpg'
     m.q = `url ${urlBaru}`
     await setMenuImg.run(m)
     const previewBaru = sent.at(-1)?.content?.contextInfo?.externalAdReply
     check('.setmenuimg url <link> menyimpan URL tanpa kata url dan membuat pratinjau', getSettings().menuImage === urlBaru && previewBaru?.thumbnailUrl === urlBaru && previewBaru?.sourceUrl === urlBaru)
+    const bareUrl = 'https://cdn.example.test/menu-bare.jpg'
+    m.q = 'url cdn.example.test/menu-bare.jpg'
+    await setMenuImg.run(m)
+    const previewBare = sent.at(-1)?.content?.contextInfo?.externalAdReply
+    check('.setmenuimg url juga menambahkan https pada host tanpa skema', getSettings().menuImage === bareUrl && previewBare?.thumbnailUrl === bareUrl && Buffer.isBuffer(previewBare?.thumbnail))
     m.q = 'url bukan-link'
     const countSebelumInvalid = sent.length
     await setMenuImg.run(m)
-    check('.setmenuimg url menolak URL tidak valid tanpa mengubah setting', getSettings().menuImage === urlBaru && /tidak valid/.test(reply) && sent.length === countSebelumInvalid)
+    check('.setmenuimg url menolak URL tidak valid tanpa mengubah setting', getSettings().menuImage === bareUrl && /tidak valid/.test(reply) && sent.length === countSebelumInvalid)
     m.q = 'none'
     await setMenuImg.run(m)
     check('.setmenuimg none benar-benar mematikan gambar menu', getSettings().menuImage === 'none' && /dimatikan/.test(reply))
@@ -146,13 +181,13 @@ console.log('\n[B] Pratinjau gambar menu')
     async relayMessage (jid, payload) { relays.push({ jid, payload }); return 'relay-ok' },
     async sendMessage (jid, payload) { relays.push({ jid, payload }); return { key: { id: 'send-ok' } } }
   }
-  const preview = { externalAdReply: { title: 'Menu', body: 'Pratinjau link', thumbnailUrl: 'https://cdn.example.test/menu.jpg', sourceUrl: 'https://cdn.example.test/menu.jpg', mediaType: 1 } }
+  const preview = { externalAdReply: { title: 'Menu', body: 'Pratinjau link', thumbnailUrl: 'https://cdn.example.test/menu.jpg', thumbnail: testPngHeader, sourceUrl: 'https://cdn.example.test/menu.jpg', mediaType: 1 } }
   await sendList(sock, JID, {
     title: 'Menu Preview Test', text: 'Pilih kategori', buttonText: 'Pilih',
     sections: [{ title: 'Kategori', rows: [{ title: 'Tools', id: '.listkat Tools' }] }],
     contextInfo: preview
   })
-  check('builder native button list meneruskan externalAdReply', relays.length === 1 && JSON.stringify(relays[0].payload).includes('externalAdReply') && JSON.stringify(relays[0].payload).includes('cdn.example.test/menu.jpg'))
+  check('builder native button list meneruskan externalAdReply beserta thumbnail buffer', relays.length === 1 && JSON.stringify(relays[0].payload).includes('externalAdReply') && JSON.stringify(relays[0].payload).includes('cdn.example.test/menu.jpg') && JSON.stringify(relays[0].payload).includes('thumbnail'))
   let carouselBuilt = false
   try {
     const image = fs.readFileSync(path.join(ROOT, 'media/menu.jpg'))
@@ -189,4 +224,5 @@ console.log('\n[C] Paginasi button list')
 console.log('\n====================================================')
 console.log(`HASIL: ${pass} PASS / ${fail} FAIL (total ${pass + fail})`)
 console.log('====================================================')
+globalThis.fetch = realFetch
 process.exit(fail ? 1 : 0)

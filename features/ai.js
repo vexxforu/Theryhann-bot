@@ -6,7 +6,7 @@ import { AIRich } from '@rexxhayanasi/elaina-baileys'
 import { config } from '../config.js'
 import { aiChat, aiImage, aiTTS, ttsVoices, cleanAIText, activePersona, aiProviderAktif } from '../lib/ai.js'
 import { getMemory, pushMemory, clearMemory, loadDB, saveDB, getSettings } from '../lib/database.js'
-import { sendAIReactionSticker } from '../lib/aireactions.js'
+import { aiToxicReply, sendAIReactionSticker } from '../lib/aireactions.js'
 import { truncate } from '../lib/functions.js'
 
 /* ================= CHAT AI ================= */
@@ -34,6 +34,14 @@ export default {
     const prompt = quoted
       ? (m.q ? `Konteks pesan yang dibalas: \"${truncate(quoted, 800)}\"\nPesan terbaru: ${m.q}` : `Tanggapi pesan ini dengan wajar: \"${truncate(quoted, 800)}\"`)
       : question
+
+    const teksToxic = `${question}\n${quoted}`
+    const balasanToxic = aiToxicReply(teksToxic)
+    if (balasanToxic) {
+      const sent = await m.reply(balasanToxic)
+      await sendAIReactionSticker(m, teksToxic).catch(() => false)
+      return sent
+    }
 
     await m.typing()
     const history = getMemory(key)

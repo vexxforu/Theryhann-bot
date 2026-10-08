@@ -23,7 +23,7 @@ import { aliasesOf, anyMatch, findParticipant, isAdminParticipant, isOwnerIdenti
 import { grupAktivitas, resetAktivitas, ringkasAktivitas, targetSider, lalu } from '../lib/aktivitasgrup.js'
 import { kartuTop } from '../lib/kartuanim.js'
 import { kirimKartu } from './kartuanim.js'
-import { gayaNama, gayaTertentu, daftarGaya } from '../lib/fancyfont.js'
+import { daftarGaya } from '../lib/fancyfont.js'
 import { getGroup, getUser, saveNow } from '../lib/database.js'
 import { truncate } from '../lib/functions.js'
 
@@ -545,7 +545,7 @@ export const demoteAll = {
 export const costumName = {
   command: ['cn', 'costumname', 'customname', 'fontnama', 'namafont', 'stylenama', 'namakfont', 'namaestetik'],
   category: 'Group Menu',
-  description: '📛 Ubah nama orang dengan font keren (siap salin) — `.cn Arif` atau `.cn 5 Arif`. Ganti nama grup: .setname',
+  description: '📛 Ubah nama orang dengan font keren; pilih gaya lalu tekan tombol Salin — `.cn Arif` atau `.cn 5 Arif`.',
   limit: 0,
   run: async m => {
     const P2 = P
@@ -553,7 +553,7 @@ export const costumName = {
     const dariBalasan = String(m.quoted?.text || m.quoted?.caption || '').trim()
 
     /* .cn list → daftar nama gaya + nomornya */
-    if (/^(list|daftar|gaya)$/.test(mentah.toLowerCase())) {
+    if (/^(list|daftar|gaya)$/i.test(mentah)) {
       const gaya = daftarGaya()
       return m.reply(
         `📛 *DAFTAR GAYA FONT .cn* — ${gaya.length} gaya\n\n` +
@@ -562,11 +562,14 @@ export const costumName = {
       )
     }
 
-    let nama = mentah
+    const pageMatch = /^(?:page|halaman)\s+(\d{1,3})\s+(.+)$/i.exec(mentah)
+    const pageArg = pageMatch ? Math.max(1, parseInt(pageMatch[1], 10)) : 1
+    const input = pageMatch ? pageMatch[2].trim() : mentah
+    let nama = input
     let satuGaya = null
 
     /* bentuk: .cn <nomor> <nama> */
-    let cocok = /^(\d{1,2})\s+(.+)$/.exec(mentah)
+    const cocok = /^(\d{1,2})\s+(.+)$/.exec(input)
     if (cocok) {
       const gaya = daftarGaya()
       const n = parseInt(cocok[1], 10)
@@ -575,10 +578,8 @@ export const costumName = {
       nama = cocok[2].trim()
     } else {
       /* bentuk: .cn <gaya> <nama> — kata pertama cocok dengan nama gaya */
-      const kata = mentah.split(/\s+/)
+      const kata = input.split(/\s+/)
       if (kata.length > 1) {
-        const g = gayaTertentu('_', kata[0]) /* uji: gayaTertentu butuh nama, di bawah dipakai terbalik */
-        void g
         const ketemu = daftarGaya().find(x => x.nama.toLowerCase().includes(kata[0].toLowerCase()))
         if (ketemu && kata.slice(1).join(' ').trim()) {
           satuGaya = ketemu
@@ -593,29 +594,61 @@ export const costumName = {
     if (!nama) {
       return m.reply(
         '📛 *CUSTOM NAME — ubah nama orang dengan font*\n\n' +
-        `• \`${P2}cn Arif\` → semua gaya\n` +
-        `• \`${P2}cn 8 Arif\` → satu gaya (nomor dari \`${P2}cn list\`)\n` +
+        `• \`${P2}cn Arif\` → pilih gaya dari tombol\n` +
+        `• \`${P2}cn 8 Arif\` → langsung satu gaya + tombol salin\n` +
         `• \`${P2}cn gotik Arif\` → cari gaya dari namanya\n` +
         `• balas pesan orang lalu \`${P2}cn\` → pakai teksnya\n\n` +
-        'Hasilnya tinggal *ditahan lalu salin* ✂️\n' +
+        'Pilih satu gaya, lalu tekan *📋 Salin Nama*.\n' +
         `_(Kalau mau ganti NAMA GRUP, pakai \`${P2}setname\`)_`
       )
     }
     if (nama.length > 30) return m.reply(`❌ Nama kepanjangan (${nama.length}/30 karakter) — font hias jadi berantakan kalau terlalu panjang.`)
 
-    /* satu gaya */
-    if (satuGaya) {
-      const t = satuGaya.fn(nama)
-      return m.reply(`📛 *CUSTOM NAME* — ${satuGaya.nama}\n\n${t}\n\n_Tahan teks ini untuk menyalin_ ✂️\nSemua gaya: \`${P2}cn ${nama}\``)
+    const kirimSalin = async (gaya, teks) => {
+      const body = `*${gaya}*\n\n${teks}\n\nTekan tombol *📋 Salin Nama* untuk menyalin hasil.`
+      if (typeof m.sendInteractive === 'function') {
+        try {
+          return await m.sendInteractive({
+            title: '📛 CUSTOM NAME',
+            text: body,
+            footer: config.bot.footer,
+            copy: [{ text: '📋 Salin Nama', code: teks }]
+          })
+        } catch {}
+      }
+      return m.reply(`📋 *${gaya}*\n\n${teks}\n\n_Tahan teks nama ini untuk menyalin._`)
     }
 
-    /* semua gaya */
-    const hasil = gayaNama(nama)
-    const teks =
-      `📛 *CUSTOM NAME — “${nama.length > 22 ? nama.slice(0, 22) + '…' : nama}”* (${hasil.length} gaya)\n\n` +
-      hasil.map((g, i) => `*${i + 1}.* ${g.teks}  _(${g.nama})_`).join('\n\n') +
-      `\n\n✂️ Tahan salah satu teks di atas untuk *menyalin*.\nSatu gaya saja: \`${P2}cn <nomor> ${nama}\` · daftar: \`${P2}cn list\``
-    return m.reply(truncate(teks, 3800))
+    /* satu gaya → tombol copy_code native */
+    if (satuGaya) return kirimSalin(satuGaya.nama, satuGaya.fn(nama))
+
+    /* semua gaya → tombol cepat, pilih satu untuk mendapatkan tombol Salin Nama */
+    const gaya = daftarGaya()
+    const ukuranHalaman = 6
+    const jumlahHalaman = Math.max(1, Math.ceil(gaya.length / ukuranHalaman))
+    const halaman = Math.min(pageArg, jumlahHalaman)
+    const mulai = (halaman - 1) * ukuranHalaman
+    const terlihat = gaya.slice(mulai, mulai + ukuranHalaman)
+    const buttons = terlihat.map((g, i) => ({
+      text: `${mulai + i + 1}. ${truncate(g.nama, 17)}`,
+      id: `${P2}cn ${mulai + i + 1} ${nama}`
+    }))
+    if (halaman > 1) buttons.push({ text: '⬅️ Sebelumnya', id: `${P2}cn page ${halaman - 1} ${nama}` })
+    if (halaman < jumlahHalaman) buttons.push({ text: '➡️ Berikutnya', id: `${P2}cn page ${halaman + 1} ${nama}` })
+    buttons.push({ text: '📋 Daftar Gaya', id: `${P2}cn list` })
+
+    const daftar = terlihat.map((g, i) => `${mulai + i + 1}. ${g.fn(nama)}  _(${g.nama})_`).join('\n')
+    const text = `📛 *CUSTOM NAME — “${nama.length > 22 ? nama.slice(0, 22) + '…' : nama}”*\nPilih salah satu tombol untuk melihat hasil yang bisa disalin.\n\n${daftar}\n\n📄 Halaman *${halaman}/${jumlahHalaman}* · ${gaya.length} gaya.`
+    try {
+      return await m.sendButtons({
+        title: '📛 PILIH GAYA FONT',
+        text,
+        footer: config.bot.footer,
+        buttons
+      })
+    } catch {
+      return m.reply(`${text}\n\nPakai langsung: \`${P2}cn <nomor> ${nama}\``)
+    }
   }
 }
 

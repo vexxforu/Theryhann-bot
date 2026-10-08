@@ -3,12 +3,12 @@
  */
 import { config } from '../config.js'
 import { categories } from '../lib/plugins.js'
-import { getSettings } from '../lib/database.js'
+import { getSettings, setSetting } from '../lib/database.js'
 import { tanggalWIB, formatDuration, truncate } from '../lib/functions.js'
+import { sendMenuPoll } from '../lib/menupoll.js'
 import { menu2Html } from '../lib/menu2.js'
 import { menu3Html } from '../lib/menu3.js'
 import { sendHtmlApp } from '../lib/htmlapp.js'
-import { sendButtons } from '../lib/interactive.js'
 import { sendPagedList } from '../lib/menupaging.js'
 import { menuImageContextInfo } from '../lib/menuimg.js'
 
@@ -59,7 +59,12 @@ export default {
     let pembuka = ''
     try { pembuka = String(getSettings().pesanPembuka || '').trim() } catch {}
     let modeMenu = 'auto'
-    try { modeMenu = String(getSettings().menuMode || config.display.menuMode || 'auto').toLowerCase() } catch {}
+    let menuStyle = ''
+    try {
+      const settings = getSettings()
+      modeMenu = String(settings.menuMode || config.display.menuMode || 'auto').toLowerCase()
+      menuStyle = String(settings.menuStyle || '').toLowerCase()
+    } catch {}
     const akun = m.isOwner ? '👑 OWNER' : u.premium ? '💎 PREMIUM' : '🆓 GRATIS'
     const daftar = u.registered ? '✅ Terdaftar' : `⚪ Belum daftar · ${P2}daftar`
     const limit = m.isOwner || u.premium ? '∞ / tanpa batas' : Number(u.limit ?? 0).toLocaleString('id-ID')
@@ -74,17 +79,18 @@ export default {
       '├────────────────',
       `│ 👤 Akun : ${akun} · ${daftar}`,
       `│ 🎟️ Limit: *${limit}*`,
-      `│ ⚙️ Mode : ${modeBot} · menu ${modeMenu.toUpperCase()}`,
+      `│ ⚙️ Mode : ${modeBot} · menu ${(menuStyle || modeMenu).toUpperCase()}`,
       `│ 🔣 Prefix: \`${P2}\``,
       `│ 🧩 Fitur: *${totalCmd}* perintah · v${b.version || ''}`,
       `│ ⏱️ Aktif: ${formatDuration(process.uptime() * 1000)}`,
       `│ 🗓️ WIB : ${tanggalnya}`,
       '╰────────────────',
       '',
-      '*PILIH FITUR DI BAWAH INI:* 👇'
+      '*PILIH FITUR DI BAWAH INI:* 👇',
+      `📱 Sosmed: \`${P2}sosmed\` · Pinterest Carousel: \`${P2}pin2\``
     ].join('\n')
 
-    /* v7.32.0 — .menu = 10 SUBMENU (tiap submenu ber-sections sesuai kegunaan) */
+    /* v7.32.0 — .menu = 11 SUBMENU (tiap submenu ber-sections sesuai kegunaan) */
     const { SUBMENU_META, jumlahSubmenu, itemsSubmenu } = await import('./submenu.js')
     const barisSub = s => {
       const n = jumlahSubmenu(s.id)
@@ -138,7 +144,7 @@ export default {
         ]
         const html = menu3Html({
           brand: b.name || 'THERYHANN!', sapa, nama: truncate(String(m.pushName || 'kakak'), 18), baris,
-          /* v7.32.0 — MENU3 memakai 10 submenu yang sama dengan .menu klasik */
+          /* v7.32.0 — MENU3 memakai 11 submenu yang sama dengan .menu klasik */
           kategori: SUBMENU_META.filter(s => m.isOwner || !s.owner).map(s => [`${s.icon} ${s.id}`, jumlahSubmenu(s.id) || 'buka']),
           catatan: [`Ketik nama submenu (mis. ${P2}menugame) untuk isinya · ${P2}menuall semua perintah`, tanggalnya]
         })
@@ -160,7 +166,7 @@ export default {
       const html = menu2Html({
         brand: b.name || 'THERYHANN!', nama: m.pushName || 'kakak', status: u.premium ? 'PREMIUM' : 'FREE', limit: u.premium ? '∞' : (u.limit ?? 0), fitur: totalCmd, versi: b.version || '', tanggal: tanggalnya, pembuka,
         sections: sek.map(g => ({ title: g.title.replace(/[^\p{L}\p{N} ·()/&—-]/gu, '').trim(), items: g.rows.map(r => ({ icon: r.title.split(' ')[0], title: r.title.split(' ').slice(1).join(' '), desc: r.description, cmd: r.id })) })),
-        /* v7.32.0 — MENU2 memakai 10 submenu yang sama (ikon app + isi ber-sections) */
+        /* v7.32.0 — MENU2 memakai 11 submenu yang sama (ikon app + isi ber-sections) */
         kategori: SUBMENU_META.filter(s => m.isOwner || !s.owner).map(s => ({ title: s.nama, icon: s.icon, items: itemsSubmenu(s.id) })).filter(k => k.items.length)
       })
       try {
@@ -181,6 +187,112 @@ export default {
       const title = '🏠 MENU — ' + (b.name || 'THERYHANN!')
       const footer = (b.footer || config.bot.footer) + ' · ' + totalAll + ' kategori aktif'
       const semuaBaris = sek.flatMap(grup => grup.rows)
+      const mainButtons = [
+        { text: '💝 Donasi', id: `${P2}donasi` },
+        { text: '👤 Kontak Owner', id: `${P2}owner` },
+        { text: '📋 List Menu', id: `${P2}menuall` },
+        { text: '🧪 Menu Dev', id: `${P2}menudev` }
+      ]
+
+      if (menuStyle === 'buttons') {
+        return await m.sendButtons({ title, text: hiu, contextInfo: contextInfoMenu, footer, buttons: mainButtons })
+      }
+      if (menuStyle === 'extended') {
+        const categoryText = semuaBaris.map(row => `▸ ${row.id} — ${row.description}`).join('\n')
+        const text = truncate([
+          hiu,
+          '',
+          '*PILIH MENU:*',
+          `💝 Donasi: ${P2}donasi`,
+          `👤 Kontak Owner: ${P2}owner`,
+          `📋 Semua perintah: ${P2}menuall`,
+          `🧪 Menu Dev: ${P2}menudev`,
+          '',
+          '*KATEGORI:*',
+          categoryText,
+          '',
+          footer
+        ].join('\n'), 3900)
+        return await m.sock.sendMessage(m.jid, { text, contextInfo: contextInfoMenu }, { quoted: m.raw })
+      }
+      if (menuStyle === 'location') {
+        const locationButtons = semuaBaris.slice(0, 10).map(row => ({ text: truncate(row.title, 20), id: row.id }))
+        try {
+          await m.sock.sendMessage(m.jid, {
+            location: {
+              degreesLatitude: 3.5952,
+              degreesLongitude: 98.6722,
+              name: 'Pin menu dekoratif · Pusat Medan',
+              address: 'Untuk tampilan menu saja — bukan lokasi server atau bot.'
+            }
+          }, { quoted: m.raw })
+          return await m.sendList({
+            title: '📍 MENU LOKASI · PILIH KATEGORI',
+            text: 'Pin ini dekoratif di pusat Medan, bukan lokasi server/bot. Pilih kategori menu di bawah.',
+            footer,
+            buttonText: '📂 Buka kategori',
+            sections: sek,
+            contextInfo: contextInfoMenu
+          })
+        } catch {
+          return await m.sendButtons({
+            title: '📍 MENU LOKASI · PILIH KATEGORI',
+            text: 'Pin dekoratif pusat Medan (bukan lokasi server/bot). Pilih kategori:',
+            footer,
+            buttons: locationButtons.length ? locationButtons : mainButtons
+          })
+        }
+      }
+      if (menuStyle === 'signup') {
+        const registered = !!u.registered
+        const buttons = registered
+          ? [{ text: '👤 Profil Saya', id: `${P2}profile` }, { text: '🏠 Menu Utama', id: 'act:menu:main' }]
+          : [{ text: '📝 Mulai Daftar', id: `${P2}daftar` }, { text: '💎 Paket Premium', id: `${P2}hargapremium` }]
+        return await m.sendButtons({
+          title: '📝 SIGNUP · BOT',
+          text: registered
+            ? `${hiu}\n\n✅ Akunmu sudah terdaftar. Tombol di bawah memakai alur profil bot biasa.`
+            : `${hiu}\n\n📝 *Pendaftaran bot*\nTekan “Mulai Daftar”, lalu kirim nama dan umur sesuai format yang dibalas bot.\n\nIni emulasi dengan tombol bot biasa, bukan formulir native WhatsApp Business.`,
+          footer,
+          buttons
+        })
+      }
+      if (menuStyle === 'offer') {
+        return await m.sendButtons({
+          title: '💎 PENAWARAN PAKET PREMIUM',
+          text: `${hiu}\n\nPilih paket premium reguler melalui \`${P2}hargapremium\`. Mode ini hanya emulasi kartu penawaran: tidak ada diskon atau tenggat waktu yang dikonfigurasi.`,
+          footer,
+          buttons: [
+            { text: '💎 Lihat Paket', id: `${P2}hargapremium` },
+            { text: '🛒 Ajukan 30 Hari', id: `${P2}belipremium 30 hari` },
+            { text: '👤 Hubungi Owner', id: `${P2}owner` }
+          ]
+        })
+      }
+      if (menuStyle === 'reviewpay') {
+        return await m.sendButtons({
+          title: '🧾 REVIEW & PAY · MANUAL',
+          text: `${hiu}\n\n1. Tinjau paket: \`${P2}hargapremium\`\n2. Ajukan pesanan: \`${P2}belipremium 30 hari\`\n3. Donasi: \`${P2}donasi\`\n\nAlur tombol bot biasa. Pembayaran dan konfirmasi ditangani manual oleh owner; tidak ada verifikasi pembayaran otomatis.`,
+          footer,
+          buttons: [
+            { text: '📋 Tinjau Paket', id: `${P2}hargapremium` },
+            { text: '🛒 Ajukan 30 Hari', id: `${P2}belipremium 30 hari` },
+            { text: '💝 Donasi', id: `${P2}donasi` }
+          ]
+        })
+      }
+      if (menuStyle === 'poll') {
+        try { return await sendMenuPoll(m, { type: 'main' }) } catch {
+          return await m.sendButtons({
+            title,
+            text: `${hiu}\n\n⚠️ Poll tidak tersedia di koneksi ini; menu ditampilkan dengan quick reply biasa.`,
+            contextInfo: contextInfoMenu,
+            footer,
+            buttons: mainButtons
+          })
+        }
+      }
+
       if (modeMenu === 'text') {
         return await m.sendMenu({
           title,
@@ -190,13 +302,19 @@ export default {
           items: []
         })
       }
-      if (modeMenu === 'button' || (modeMenu === 'auto' && m.isGroup)) {
+      if (modeMenu === 'button' || modeMenu === 'auto') {
+        const buttons = [
+          { text: '💝 Donasi', id: `${P2}donasi` },
+          { text: '👤 Kontak Owner', id: `${P2}owner` },
+          { text: '📋 List Menu', id: `${P2}menuall` },
+          { text: '🧪 Menu Dev', id: `${P2}menudev` }
+        ]
         return await m.sendButtons({
           title,
           text: hiu,
           contextInfo: contextInfoMenu,
           footer,
-          buttons: semuaBaris.slice(0, 10).map(r => ({ text: truncate(r.title, 24), id: r.id }))
+          buttons
         })
       }
       return await m.sendList({
@@ -223,6 +341,7 @@ export const setmenu2 = {
   run: async (m, ctx) => {
     const { setSetting } = await import('../lib/database.js')
     setSetting('menuMode', 'html')
+    setSetting('menuStyle', '')
     await m.reply('✅ Mode menu → *MENU2 (HTML)*. Ini tampilannya:')
     m.q = ''
     return (await import('./menu.js')).default.run(m, ctx)
@@ -236,6 +355,7 @@ export const setmenu3 = {
   run: async (m, ctx) => {
     const { setSetting } = await import('../lib/database.js')
     setSetting('menuMode', 'menu3')
+    setSetting('menuStyle', '')
     await m.reply('✅ Mode menu → *MENU3 (kartu HTML teks)*. Ini tampilannya:')
     m.q = ''
     return (await import('./menu.js')).default.run(m, ctx)
@@ -261,7 +381,8 @@ export const setmenu1 = {
   run: async (m, ctx) => {
     const { setSetting } = await import('../lib/database.js')
     setSetting('menuMode', 'auto')
-    await m.reply('✅ Mode menu → *klasik (auto)*.')
+    setSetting('menuStyle', 'buttons')
+    await m.reply('✅ Mode menu → *klasik (Buttons)*.')
     m.q = ''
     return (await import('./menu.js')).default.run(m, ctx)
   }
@@ -276,5 +397,49 @@ export const menu2 = {
     const lama = getSettings().menuMode
     setSetting('menuMode', 'html'); m.q = ''
     try { return await (await import('./menu.js')).default.run(m, ctx) } finally { setSetting('menuMode', lama || 'auto') }
+  }
+}
+
+const MENU_STYLE_TYPES = [
+  { number: 1, key: 'buttons', label: 'Buttons', description: 'Quick reply 4 pilihan untuk menu utama' },
+  { number: 2, key: 'extended', label: 'Extended Text', description: 'Teks panjang dengan preview menu' },
+  { number: 3, key: 'location', label: 'Location', description: 'Pin dekoratif pusat Medan + list kategori' },
+  { number: 4, key: 'signup', label: 'In-app Signup', description: 'Emulasi tombol pendaftaran .daftar' },
+  { number: 5, key: 'offer', label: 'Limited Time Offer', description: 'Emulasi kartu paket; tanpa diskon/timer' },
+  { number: 6, key: 'reviewpay', label: 'Review & Pay', description: 'Emulasi alur premium/donasi manual' },
+  { number: 7, key: 'poll', label: 'Poll Menu', description: 'Poll utama, kategori, dan halaman submenu' }
+]
+
+export const setMenuStyle = {
+  command: ['setmenu', 'setmenutype', 'menutipe'],
+  category: 'Owner Menu',
+  description: '⚙️ Pilih gaya menu utama: .setmenu 1–7',
+  owner: true,
+  limit: 0,
+  run: async (m, ctx = {}) => {
+    const prefix = ctx.prefix || config.display.prefix
+    const chosen = String(m.q || m.args?.[0] || '').trim()
+    if (!chosen) {
+      const currentKey = String(getSettings().menuStyle || 'buttons').toLowerCase()
+      const current = MENU_STYLE_TYPES.find(item => item.key === currentKey)?.label || 'Buttons (default)'
+      const buttons = MENU_STYLE_TYPES.map(item => ({
+        text: `${item.number} · ${item.label}`,
+        id: `${prefix}setmenu ${item.number}`
+      }))
+      return m.sendButtons({
+        title: '⚙️ SET TYPE MENU',
+        text: `Pilih gaya menu utama dengan tombol atau ketik \`${prefix}setmenu 1-7\`.\n\nAktif: *${current}*\n\n4–6 berjalan sebagai emulasi alur tombol bot biasa, bukan template native WhatsApp Business. Poll memerlukan dukungan poll WhatsApp; sesi aktif sementara dan dibersihkan saat bot restart.`,
+        footer: config.bot.footer,
+        buttons
+      })
+    }
+    if (!/^[1-7]$/.test(chosen)) return m.reply(`❌ Pilihan tidak valid. Gunakan \`${prefix}setmenu 1-7\`.`)
+    const style = MENU_STYLE_TYPES[Number(chosen) - 1]
+    setSetting('menuStyle', style.key)
+    setSetting('menuMode', 'auto')
+    await m.reply(`✅ Gaya menu diubah ke *${style.number}. ${style.label}* — ${style.description}.\n\nBerikut tampilan menu yang sudah aktif:`)
+    m.q = ''
+    m.args = []
+    return (await import('./menu.js')).default.run(m, { ...ctx, prefix })
   }
 }

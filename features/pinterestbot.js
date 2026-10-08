@@ -127,9 +127,9 @@ export async function kirimPinCarousel (m, pins, deps = {}) {
   return { sent, failed: gagal, mode: siap.length === 1 ? 'single' : 'fallback' }
 }
 export const pinCmd = {
-  command: ['pin', 'pinterest', 'pinter', 'pinsearch', 'caripin', 'pinterestdl', 'carpin'],
+  command: ['pin', 'pin2', 'pinterest', 'pinter', 'pinsearch', 'caripin', 'pinterestdl', 'carpin'],
   category: 'Downloader',
-  description: '📌 Cari gambar Pinterest dalam Carousel geser — `.pin kata kunci 4`',
+  description: '📌 Cari gambar Pinterest dalam Carousel geser — `.pin2 kata kunci 4`',
   limit: 0,
   cooldown: 6,
   contoh: 'erupsi anak krakatau 5',

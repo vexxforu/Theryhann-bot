@@ -8,6 +8,7 @@ import chalk from 'chalk'
 import { areJidsSameUser, isJidGroup } from '@rexxhayanasi/elaina-baileys'
 import { config } from '../config.js'
 import { smsg, getButtonId, downloadToFile } from '../lib/serializer.js'
+import { sendMenuPoll, consumeMenuPollUpdate } from '../lib/menupoll.js'
 import {
   findPlugin,
   listPlugins,
@@ -37,7 +38,7 @@ import {
 } from '../lib/interactive.js'
 import { aiChat, aiImage, aiTTS, activePersona, cleanAIText } from '../lib/ai.js'
 import { findCommandSuggestions, isReplyToBotMessage, typoReplyText } from '../lib/aihelpers.js'
-import { sendAIReactionSticker } from '../lib/aireactions.js'
+import { aiToxicReply, sendAIReactionSticker } from '../lib/aireactions.js'
 import { checkGameAnswer } from '../features/games.js'
 import { checkLabAnswer } from '../features/gameslab.js'
 import { tambahWarn, resetWarn } from '../features/grouplab.js'
@@ -305,6 +306,18 @@ export async function messageHandler (messages, type) {
         } catch {}
       }
 
+      /* ---------- RESPONS TOXIC + STIKER CUSTOM ---------- */
+      // Balasan lokal sebelum AI/guard lain; command dan tombol tidak ikut diproses.
+      if (!m.isCommand && !m.buttonId && !m.isBot) {
+        const toxicText = String(m.text || '')
+        const balasanToxic = aiToxicReply(toxicText)
+        if (balasanToxic) {
+          await m.reply(balasanToxic)
+          await sendAIReactionSticker(m, toxicText).catch(() => false)
+          continue
+        }
+      }
+
       /* ---------- ANTI LINK / ANTI TOXIC ---------- */
       if (m.isGroup && !m.isAdmin && !m.isOwner) { if (await guardGroup(m)) continue }
 
@@ -322,6 +335,88 @@ export async function messageHandler (messages, type) {
       const body = m.text || ''
       const btnId = m.buttonId || ''
       const isAction = /^act:/.test(btnId)
+      const configuredPrefixes = Array.isArray(config.display.prefix) ? config.display.prefix : [config.display.prefix]
+      const menuPrefix = configuredPrefixes[0] || '.'
+
+      // Poll responses are separate encrypted WhatsApp messages. Only polls
+      // created by the active menu session are consumed; all others pass on.
+      if (m.msg?.pollUpdateMessage) {
+        let vote = null
+        try { vote = await consumeMenuPollUpdate(m, m.msg.pollUpdateMessage) } catch (e) {
+          log.warn('menu poll vote:', e?.message || e)
+        }
+        if (vote?.handled) {
+          if (vote.duplicate) continue
+          if (vote.error) {
+            await m.reply(`⚠️ Suara poll tidak dapat dibaca. Ketik \`${menuPrefix}menu\` untuk membuka menu baru.`)
+            continue
+          }
+          const action = vote.action || {}
+          const tryPoll = async spec => {
+            try { return await sendMenuPoll(m, spec) } catch (e) {
+              log.warn('menu poll next page:', e?.message || e)
+              return null
+            }
+          }
+          if (action.type === 'main' || action.type === 'categories' || action.type === 'submenu') {
+            const sentPoll = await tryPoll(action.type === 'submenu'
+              ? { type: 'submenu', menuId: action.menuId, page: action.page || 0 }
+              : { type: action.type })
+            if (sentPoll) continue
+            if (action.type === 'submenu') {
+              const prefixes = Array.isArray(config.display.prefix) ? config.display.prefix : [config.display.prefix]
+              const pfx = prefixes[0] || '.'
+              const commandText = `${pfx}${action.menuId}`
+              await routePollCommand(m, commandText)
+              continue
+            }
+            if (action.type === 'categories') {
+              const { SUBMENU_META } = await import('../features/submenu.js')
+              const rows = SUBMENU_META.filter(item => m.isOwner || !item.owner).map(item => ({
+                title: `${item.icon} ${item.id}`,
+                description: item.desc,
+                id: `${menuPrefix}${item.id}`
+              }))
+              try {
+                await m.sendList({
+                  title: '📋 PILIH KATEGORI',
+                  text: 'Poll tidak tersedia pada koneksi ini; gunakan daftar kategori berikut.',
+                  buttonText: '📂 Buka kategori',
+                  sections: [{ title: 'SUBMENU', rows }]
+                })
+              } catch {
+                await m.sendButtons({
+                  title: '📋 PILIH KATEGORI',
+                  text: 'Poll/list tidak tersedia. Ketik .menu untuk kembali.',
+                  buttons: rows.slice(0, 10).map(row => ({ text: truncate(row.title, 22), id: row.id }))
+                })
+              }
+              continue
+            }
+            await m.sendButtons({
+              title: '📋 MENU',
+              text: 'Poll tidak tersedia pada koneksi ini. Gunakan quick reply atau ketik .menu.',
+              buttons: [
+                { text: '💝 Donasi', id: `${menuPrefix}donasi` },
+                { text: '👤 Owner', id: `${menuPrefix}owner` },
+                { text: '📋 Semua Menu', id: `${menuPrefix}menuall` },
+                { text: '🏠 Menu Utama', id: `${menuPrefix}menu` }
+              ]
+            })
+            continue
+          }
+          if (action.type === 'command') {
+            await routePollCommand(m, action.id)
+            continue
+          }
+          if (action.type === 'action') {
+            await handleAction(m, action.id)
+            continue
+          }
+          await m.reply(`⚠️ Pilihan poll tidak dikenali. Ketik \`${menuPrefix}menu\`.`)
+          continue
+        }
+      }
 
       if (isAction) return await handleAction(m, btnId)
 
@@ -440,6 +535,29 @@ export async function messageHandler (messages, type) {
 /* ------------------------------------------------------------------ */
 /*  COMMAND                                                            */
 /* ------------------------------------------------------------------ */
+async function routePollCommand (m, rawCommand) {
+  const prefixes = Array.isArray(config.display.prefix) ? config.display.prefix : [config.display.prefix]
+  let body = String(rawCommand || '').trim()
+  let prefix = prefixes.find(item => item && body.startsWith(item)) || prefixes[0] || '.'
+  if (!body.startsWith(prefix)) body = prefix + body
+  const commandBody = body.slice(prefix.length).trim()
+  const parts = commandBody.split(/[\s\n]+/).filter(Boolean)
+  const commandName = String(parts[0] || '').toLowerCase()
+  if (m.isGroup && m.groupSet?.mute && !m.isOwner && !['unmute', 'menu'].includes(commandName)) return
+  m.isCommand = true
+  m.noPrefix = false
+  m.prefix = prefix
+  m.command = String(parts.shift() || '').toLowerCase()
+  m.args = parts
+  m.q = parts.join(' ')
+  m.arg = m.q
+  m.text = body
+  m.body = body
+  m.buttonId = ''
+  if (!m.command) return m.reply('⚠️ Pilihan menu kosong. Ketik menu untuk membuka kembali.')
+  return handleCommand(m)
+}
+
 async function handleCommand (m) {
   const found = findPlugin(m.command)
   if (!found?.plugin) {
@@ -924,6 +1042,7 @@ async function guardGroup (m) {
   if (!g.nsfw && NSFW.test(m.text || '')) {
     await m.reply(`🔞 Kata berbau pornografi terdeteksi. Pesan dihapus.\nAdmin bisa mengizinkan dengan \`${config.display.prefix}nsfwon\`.`, { mentions: [m.sender] }).catch(() => {})
     if (m.isBotAdmin) { try { await sock.sendMessage(m.jid, { delete: m.key }) } catch {} }
+    return true
   }
 }
 

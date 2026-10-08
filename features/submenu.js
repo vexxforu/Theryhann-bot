@@ -1,12 +1,12 @@
 /**
  * 📂 SUBMENU UTAMA (v7.32.0)
  * ------------------------------------------------------------------
- *  `.menu` menampilkan 10 submenu. Tiap submenu mengeluarkan SEMUA fiturnya
+ *  `.menu` menampilkan 11 submenu. Tiap submenu mengeluarkan SEMUA fiturnya
  *  dalam sections yang DIURUTKAN SESUAI KEGUNAAN (terpenting dulu):
  *
  *   👥 menugroup   🎨 menusticker   🕵️ menustalker  🧩 menuinteraktif
  *   🎉 menufun     🎮 menugame      👑 menuowner    🧑‍💻 menudev
- *   💖 donasi      📜 menuall
+ *   🔞 menunsfw    💖 donasi        📜 menuall
  *
  *  Khusus menugame: 🖥️ GAME HTML (versi awal → terbaru) · 🌐 GAME WEB
  *  (cerita + dunia) · 💬 GAME TEKS (tebak, kuis, lawan) · 🧠 LAB ·
@@ -17,7 +17,8 @@
  */
 import { config } from '../config.js'
 import { findPlugin, categories } from '../lib/plugins.js'
-import { sendPagedList, menuPageIndex } from '../lib/menupaging.js'
+import { menuPageIndex } from '../lib/menupaging.js'
+import { menuImageContextInfo } from '../lib/menuimg.js'
 import { truncate } from '../lib/functions.js'
 import { ARCADE_9 } from '../lib/htmlgames15.js'
 import { daftarLab } from './gamerespon.js'
@@ -151,7 +152,7 @@ export function sectionsSticker () {
 /* ===================== 🕵️ MENUSTALKER ===================== */
 export function sectionsStalker () {
   return rakit([
-    { t: '📱 SOSIAL MEDIA', cmds: ['igstalk', 'tiktokstalk', 'ytstalk', 'fbstalk', 'threadsstalk', 'pinstalk', 'telestalk', 'spotifystalk'] },
+    { t: '📱 SOSIAL MEDIA', cmds: ['sosmed', 'igstalk', 'tiktokstalk', 'ytstalk', 'fbstalk', 'threadsstalk', 'pinstalk', 'telestalk', 'spotifystalk'] },
     { t: '🎮 GAME', cmds: ['robloxstalk', 'steamstalk', 'mcstalk', 'chessstalk'] },
     { t: '💻 DEVELOPER', cmds: ['githubstalk', 'npmstalk'] }
   ])
@@ -188,7 +189,7 @@ export function sectionsOwner () {
     { t: '📢 BROADCAST', cmds: ['bc', 'bcteks', 'bcgrup', 'bcprivat', 'bcgambar', 'bcdokumen', 'bctombol', 'bctunda', 'bcpremium', 'bcaktif', 'upswgc2'] },
     { t: '💎 PREMIUM & USER', cmds: ['premlist', 'premdetail', 'userinfo', 'userdetail', 'setcashuser', 'addmoney', 'setmoney', 'setkoin', 'addlevel', 'setlevel', 'addxp', 'setlevelrpg', 'ban', 'bantemp', 'banlist', 'resetuser', 'resetsemualimit', 'resetsemuauser', 'resetlimit', 'resetdatarpg'] },
     { t: '👥 GRUP & SEWA', cmds: ['sewabot', 'grupdetail'] },
-    { t: '⚙️ PENGATURAN', cmds: ['settinglist', 'setnamabot', 'setfooter', 'settemamenu', 'setmodemenu', 'setmenuimg', 'setprefix', 'setlimitdefault', 'setcooldown', 'setmodelai', 'setapikey', 'setaikey', 'typingon', 'typingoff', 'readon', 'readoff', 'anticallon', 'anticalloff', 'autobioon', 'autobiooff', 'public', 'cmdmode', 'kuncifitur', 'pesanpembuka', 'set', 'setmenu1', 'setmenu2', 'setmenu3', 'setmenu4', 'buatmenu', 'simpanmenu', 'hapusmenu', 'setppbot', 'setwebgame'] },
+    { t: '⚙️ PENGATURAN', cmds: ['settinglist', 'setnamabot', 'setfooter', 'settemamenu', 'setmodemenu', 'setmenuimg', 'setprefix', 'setlimitdefault', 'setcooldown', 'setmodelai', 'setapikey', 'setaikey', 'typingon', 'typingoff', 'readon', 'readoff', 'anticallon', 'anticalloff', 'autobioon', 'autobiooff', 'public', 'cmdmode', 'kuncifitur', 'pesanpembuka', 'set', 'setmenu', 'setmenu1', 'setmenu2', 'setmenu3', 'setmenu4', 'buatmenu', 'simpanmenu', 'hapusmenu', 'setppbot', 'setwebgame'] },
     { t: '🗄️ DATABASE', cmds: ['dbsize', 'dbstat', 'ekspordb', 'impordb', 'backupdb', 'listbackup', 'restorebackup', 'hapusbackup', 'logbot', 'bersihkantmp2', 'cleartmp', 'kirimfile'] },
     { t: '📊 PANTAU', cmds: ['statistikpenuh', 'totalchat', 'lbreset', 'aistatus', 'kesehatanbot', 'monitorcpu', 'sesiinfo', 'hapussesi', 'cekapi', 'cekdependensi', 'pluginhealth'] }
   ], 'Owner Menu', DEV_CMDS)
@@ -202,8 +203,15 @@ export function sectionsDev () {
   ])
 }
 
-/* ===================== meta 10 submenu ===================== */
-export const SUBMENU_BUILDER = { menugame: sectionsGame, menugroup: sectionsGroup, menusticker: sectionsSticker, menustalker: sectionsStalker, menuinteraktif: sectionsInteraktif, menufun: sectionsFun, menuowner: sectionsOwner, menudev: sectionsDev }
+/* ===================== 🔞 NSFW 18+ ===================== */
+export function sectionsNsfw () {
+  return rakit([
+    { t: '🔞 AKSES & GALERI 18+', cmds: ['nsfw18', 'nsfwmenu', 'masturbation', 'opaianime', 'gangbang', 'kasedaiki', 'hentai'] }
+  ])
+}
+
+/* ===================== meta submenu ===================== */
+export const SUBMENU_BUILDER = { menugame: sectionsGame, menugroup: sectionsGroup, menusticker: sectionsSticker, menustalker: sectionsStalker, menuinteraktif: sectionsInteraktif, menufun: sectionsFun, menuowner: sectionsOwner, menudev: sectionsDev, menunsfw: sectionsNsfw }
 export const SUBMENU_META = [
   { id: 'menugroup', icon: '👥', nama: 'Group', desc: 'pengaturan, sambutan, keamanan, absen & aktivitas grup' },
   { id: 'menusticker', icon: '🎨', nama: 'Sticker', desc: 'buat stiker, brat, meme, AI style & 40+ efek' },
@@ -213,6 +221,7 @@ export const SUBMENU_META = [
   { id: 'menugame', icon: '🎮', nama: 'Game', desc: 'HTML (awal→baru), web cerita, teks, lab & papan skor' },
   { id: 'menuowner', icon: '👑', nama: 'Owner', desc: 'broadcast, user, pengaturan, database (owner)', owner: true },
   { id: 'menudev', icon: '🧑‍💻', nama: 'Dev', desc: 'plugin, kode & mesin bot (owner)', owner: true },
+  { id: 'menunsfw', icon: '🔞', nama: 'NSFW 18+', desc: 'galeri anime dewasa, opt-in pribadi 18+ dan izin admin grup' },
   { id: 'donasi', icon: '💖', nama: 'Donasi', desc: 'dukung bot via QRIS / sewa / premium' },
   { id: 'menuall', icon: '📜', nama: 'Semua', desc: 'tampilkan SEMUA perintah bot sekaligus' }
 ]
@@ -232,25 +241,43 @@ export function itemsSubmenu (id) {
 }
 
 /* ===================== plugin ===================== */
+const SUBMENU_BUTTON_PAGE_SIZE = 6
+
+async function kirimTombolSubmenu (m, judul, emoji, sections, ket) {
+  const allRows = (sections || []).flatMap(section =>
+    (section?.rows || []).filter(row => row?.id).map(row => ({ ...row, section: section.title || '' }))
+  )
+  const total = allRows.length
+  const pages = Math.max(1, Math.ceil(total / SUBMENU_BUTTON_PAGE_SIZE))
+  const current = Math.min(Math.max(0, menuPageIndex(m)), pages - 1)
+  const visible = allRows.slice(current * SUBMENU_BUTTON_PAGE_SIZE, (current + 1) * SUBMENU_BUTTON_PAGE_SIZE)
+  const command = `${P}${m.command || 'menugame'}`
+  const buttons = visible.map(row => ({ text: truncate(row.title || row.id, 24), id: String(row.id) }))
+  if (current > 0) buttons.push({ text: '⬅️ Sebelumnya', id: `${command} ${current}` })
+  if (current < pages - 1) buttons.push({ text: '➡️ Berikutnya', id: `${command} ${current + 2}` })
+  buttons.push({ text: '🏠 Menu Utama', id: 'act:menu:main' })
+
+  const sectionNames = [...new Set(visible.map(row => row.section).filter(Boolean))]
+  const ringkas = visible.slice(0, 4).map(row => `▸ ${truncate(row.title || row.id, 54)}${row.description ? ` — ${truncate(row.description, 70)}` : ''}`).join('\n')
+  const pageLabel = pages > 1 ? `\n\n📄 Halaman *${current + 1}/${pages}* · ${total} pilihan.` : ''
+  const text = `${emoji} *${judul} — ${total} fitur*\n${ket}${sectionNames.length ? `\n\n📂 ${sectionNames.join(' · ')}` : ''}${ringkas ? `\n\n${ringkas}` : ''}${pageLabel}\n\nPilih tombol untuk langsung membuka fitur:`
+  const contextInfo = await menuImageContextInfo({
+    title: `${emoji} ${judul}`,
+    body: `${total} fitur · halaman ${current + 1}/${pages}`
+  }).catch(() => undefined)
+
+  return await m.sendButtons({ title: `${emoji} ${judul}`, text, footer: brand(), buttons, contextInfo })
+}
+
 const kirimSubmenu = (judul, emoji, sections, ket) => async m => {
   const total = sections.reduce((a, s) => a + s.rows.length, 0)
-  const text = `${emoji} *${judul} — ${total} fitur*\n${ket}\n\nPilih untuk langsung menjalankan:`
   try {
-    await sendPagedList(m, {
-      title: `${emoji} ${judul}`,
-      text,
-      footer: brand(),
-      buttonText: `${emoji} ${judul}`,
-      sections,
-      page: menuPageIndex(m),
-      command: `${P}${m.command || 'menugame'}`
-    })
+    await kirimTombolSubmenu(m, judul, emoji, sections, ket)
   } catch {
     await m.reply(`*${emoji} ${judul} (${total})*\n\n` + sections.map(s => `*${s.title}*\n` + s.rows.map(r => `▸ ${r.id}`).join('\n')).join('\n\n'))
   }
   return { handled: true }
 }
-
 export const menugame = {
   command: ['menugame', 'gamemenu2', 'menugamelengkap'],
   category: 'Games',
@@ -275,4 +302,12 @@ export const menudev = {
   run: async m => kirimSubmenu('MENU DEV', '🧑‍💻', sectionsDev(), 'Perkakas developer & owner: kelola plugin, eksekusi kode, atur mesin.')(m)
 }
 
-export default { menugame, menustalker, menudev, sectionsGame, sectionsGroup, sectionsSticker, sectionsStalker, sectionsInteraktif, sectionsFun, sectionsOwner, sectionsDev, SUBMENU_META, jumlahSubmenu, itemsSubmenu, barisCmd }
+export const menunsfw = {
+  command: ['menunsfw', 'nsfwsubmenu'],
+  category: 'NSFW 18+',
+  description: '🔞 Menu galeri dewasa; media tetap terkunci sampai opt-in 18+ dan, di grup, izin admin.',
+  limit: 0,
+  run: async m => kirimSubmenu('GALERI NSFW 18+', '🔞', sectionsNsfw(), `Daftar perintah saja; media dikirim hanya setelah \`${P}nsfw18 on\` di chat pribadi. Grup memerlukan \`${P}nsfwon\` dari admin.`)(m)
+}
+
+export default { menugame, menustalker, menudev, menunsfw, sectionsGame, sectionsGroup, sectionsSticker, sectionsStalker, sectionsInteraktif, sectionsFun, sectionsOwner, sectionsDev, sectionsNsfw, SUBMENU_META, jumlahSubmenu, itemsSubmenu, barisCmd }

@@ -108,7 +108,7 @@ const toggle = (command, aliases, field, label, nilai, penjelasan) =>
         { text: '🏠 Menu', id: 'act:menu:main' }
       ]
     }).catch(() => m.reply(`${label}: ${nilai ? 'AKTIF' : 'NONAKTIF'}`))
-  })
+  }, { admin: true })
 
 /* ================================================================== */
 /*  DAFTAR COMMAND                                                     */

@@ -410,8 +410,11 @@ export const setMenuImg = {
     }
     if (explicitUrl || /^https?:/i.test(arg)) {
       try {
-        const parsed = new URL(arg)
-        if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) throw new Error('protokol/host tidak valid')
+        const candidate = explicitUrl && !/^https?:\/\//i.test(arg) ? `https://${arg}` : arg
+        const parsed = new URL(candidate)
+        const host = parsed.hostname.replace(/^\[|\]$/g, '')
+        const ipLike = host.includes(':') || /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)
+        if (!['http:', 'https:'].includes(parsed.protocol) || !host || (!host.includes('.') && host !== 'localhost' && !ipLike)) throw new Error('protokol/host tidak valid')
         arg = parsed.href
       } catch {
         return m.reply(`Link gambar tidak valid. Gunakan URL http/https, contoh: \`${p}setmenuimg url https://example.com/menu.jpg\``)

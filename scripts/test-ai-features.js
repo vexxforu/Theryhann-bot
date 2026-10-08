@@ -14,6 +14,7 @@ const { getSettings, setSetting } = await import('../lib/database.js')
 const { loadPlugins, listPlugins, findPlugin } = await import('../lib/plugins.js')
 const { findCommandSuggestions, isReplyToBotMessage } = await import('../lib/aihelpers.js')
 const {
+  aiToxicReply,
   detectAIMood,
   chooseAIReactionSticker,
   getAIReactionStickerStatus,
@@ -69,7 +70,35 @@ for (const plugin of (await import('../lib/plugins.js')).plugins.values()) plugi
 const typoKick = findCommandSuggestions('kikc', listPlugins(), { isGroup: true })
 check('typo kick memberi saran command resmi', typoKick[0]?.command === 'kick')
 check('.setstc masuk kategori AI Menu dan dapat ditemukan', findPlugin('setstc')?.plugin?.category === 'AI Menu')
+check('.sosmed dimuat sebagai plugin Carousel Internet', findPlugin('sosmed')?.plugin?.category === 'Internet')
+check('.pin2 menuju handler Pinterest Carousel yang sama dengan .pin', findPlugin('pin2')?.plugin === findPlugin('pin')?.plugin)
 check('.ewe/.entod/.dor/.tendang terdaftar sebagai alias kick', ['ewe', 'entod', 'dor', 'tendang'].every(a => findPlugin(a)?.plugin === findPlugin('kick')?.plugin) && kickAdd.command.includes('tendang'))
+
+console.log('\n[B1] Menu utama dan submenu quick-reply')
+setSetting('menuMode', 'auto')
+const menuPlugin = findPlugin('menu')?.plugin
+let ownerMenuPayload
+const fakeMainMenu = {
+  q: '', args: [], isOwner: true, isGroup: false, pushName: 'Penguji',
+  userDB: { registered: true, premium: false, limit: 5 }, plugins: listPlugins(),
+  async sendButtons (opt) { ownerMenuPayload = opt; return opt },
+  async sendList (opt) { ownerMenuPayload = opt; return opt },
+  async sendMenu (opt) { ownerMenuPayload = opt; return opt }
+}
+await menuPlugin.run(fakeMainMenu, { prefix: config.display.prefix })
+check('menu utama punya empat tombol sesuai permintaan', ownerMenuPayload?.buttons?.map(b => b.text).join('|') === '💝 Donasi|👤 Kontak Owner|📋 List Menu|🧪 Menu Dev')
+check('menu utama mencantumkan akses carousel .sosmed dan .pin2', ownerMenuPayload?.text?.includes('.sosmed') && ownerMenuPayload.text.includes('.pin2'))
+fakeMainMenu.isOwner = false
+await menuPlugin.run(fakeMainMenu, { prefix: config.display.prefix })
+check('keempat tombol utama tetap tampil pada akun biasa', ownerMenuPayload?.buttons?.length === 4 && ownerMenuPayload.buttons.at(-1)?.id === '.menudev')
+let submenuPayload
+const stalkerMenu = findPlugin('menustalker')?.plugin
+await stalkerMenu.run({
+  q: '', args: [], command: 'menustalker',
+  async sendButtons (opt) { submenuPayload = opt; return opt },
+  async reply (text) { return text }
+})
+check('submenu memakai quick-reply berjajar dan memuat .sosmed', submenuPayload?.buttons?.length <= 10 && submenuPayload.buttons.some(b => b.id === '.sosmed') && !submenuPayload.sections)
 
 console.log('\n[B2] Command .ai dengan kutipan')
 let commandAIReply = ''
@@ -88,7 +117,6 @@ const aiCommandRequest = JSON.parse(fetched.at(-1)?.options?.body || '{}')
 const aiCommandPrompt = (aiCommandRequest.messages || []).map(x => x.content).join('\n')
 check('.ai tetap menerima kutipan sebagai konteks bersama pertanyaan terbaru', aiCommandPrompt.includes('Penjelasan bot sebelumnya') && aiCommandPrompt.includes('jelasin lagi dong'))
 check('.ai memakai persona aktif dan menyajikan jawaban sebagai teks biasa', aiCommandRequest.messages?.[0]?.content?.includes('terasa natural') && commandAIReply === 'Hai! Senang kamu bertanya.')
-
 console.log('\n[C] .setstc & stiker reaksi AI')
 const sticker = makeWebP()
 let confirmation = ''
@@ -99,7 +127,21 @@ const mSet = {
 }
 await setAISticker.run(mSet)
 check('.setstc marah menyimpan stiker reply ke database persisten', getAIReactionStickerStatus().marah.configured && /marah/i.test(confirmation))
+const toxicReplies = ['jangan toxic anjng', 'lu mati aja babi', 'kau jangan toxic wok']
+let toxicAICommandReply = ''
+let toxicAICommandSticker = null
+const beforeAICommandToxicFetch = fetched.length
+await aiCommand.run({
+  q: 'memek', quoted: {}, isGroup: false,
+  senderKey: '6282222222222@s.whatsapp.net', sender: '6282222222222@s.whatsapp.net',
+  pushName: 'Penguji', async typing () {},
+  async reply (text) { toxicAICommandReply = String(text); return text },
+  async sendSticker (buffer) { toxicAICommandSticker = buffer }
+})
+check('.ai membalas kata toxic secara lokal dan mengirim stiker tanpa memanggil provider', toxicReplies.includes(toxicAICommandReply) && toxicAICommandSticker?.equals(sticker) && fetched.length === beforeAICommandToxicFetch)
 check('deteksi suasana mengenali marah, senang, dan bingung', detectAIMood('aku lagi kesal') === 'marah' && detectAIMood('makasih, senang banget') === 'senang' && detectAIMood('aku bingung nih') === 'bingung')
+check('kata toxic memicu variasi balasan yang diminta dan tidak salah cocok pada kata turunan', ['kontol', 'memek', 'asu', 'ngentod'].every(word => toxicReplies.includes(aiToxicReply(`hei ${word}!`, () => 0))) && aiToxicReply('asupan sehat') === null)
+check('kata toxic dipetakan ke suasana marah agar memakai stiker custom', detectAIMood('kontol') === 'marah')
 const selected = chooseAIReactionSticker('aku lagi kesal', getSettings().aiReactionStickers, () => 0.99)
 check('AI memilih stiker marah yang sesuai, tanpa mengambil stiker random', selected?.mood === 'marah' && selected?.data)
 // Set a second test sticker for the confused mood and verify actual send path.
@@ -153,6 +195,20 @@ const handlerPrompt = (handlerRequest.messages || []).map(x => x.content).join('
 check('reply otomatis meneruskan isi kutipan dan pesan lanjutan ke AI', handlerPrompt.includes('Tadi kita sedang membahas AI.') && handlerPrompt.includes('lanjutin penjelasan tadi dong'))
 check('reply otomatis memakai persona aktif', handlerRequest.messages?.[0]?.content?.includes('terasa natural'))
 check('provider mock tidak pernah memanggil proxy Anthropic bawaan', !fetched.some(x => x.url.includes('apinex.bond')))
+const toxicStart = outgoing.length
+const toxicFetchCount = fetched.length
+const toxicIncoming = {
+  key: { remoteJid: USER, fromMe: false, id: 'toxic-incoming' },
+  pushName: 'Penguji',
+  messageTimestamp: String(Math.floor(Date.now() / 1000)),
+  message: { conversation: 'kontol' }
+}
+await messageHandler([toxicIncoming], 'notify')
+const toxicSent = outgoing.slice(toxicStart)
+const toxicTextMessage = toxicSent.find(x => toxicReplies.includes(x.content?.text))
+const toxicStickerMessage = toxicSent.find(x => Buffer.isBuffer(x.content?.sticker))
+check('pesan biasa berisi kata toxic dibalas tanpa AI dan mengirim stiker marah custom', !!toxicTextMessage && toxicReplies.includes(toxicTextMessage.content.text) && toxicStickerMessage?.content?.sticker?.equals(sticker))
+check('filter toxic tidak membuat panggilan ke provider AI', fetched.length === toxicFetchCount)
 const fetchCountBeforeTypo = fetched.length
 const typoCommand = {
   key: { remoteJid: USER, fromMe: false, id: 'typo-incoming' },
