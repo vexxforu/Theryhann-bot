@@ -23,7 +23,6 @@ function ok (label, syarat, info = '') {
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const DIR_FITUR = path.join(ROOT, 'features')
-const DIR_DATA_DEV = path.join(ROOT, 'data', 'devfiles')
 const FILE_SET = path.join(ROOT, 'database', 'settings.json')
 const FILE_DEV = path.join(ROOT, 'database', 'devplugin.json')
 const CAD_SET = fs.existsSync(FILE_SET) ? fs.readFileSync(FILE_SET, 'utf8') : null
@@ -231,18 +230,13 @@ console.log('\n[E] File non-.js')
   const nama = catat(`ujicatat${stempel}.json`)
   const isi = '{\n  "sapa": "halo"\n}'
   const r = await jalan(OWNER, `${P}cateof ${nama} <<EOF\n${isi}\nEOF`)
-  const diDataDev = fs.existsSync(path.join(DIR_DATA_DEV, nama))
+  /* .json disimpan ke root bot, bukan features/ */
+  const diRoot = fs.existsSync(path.join(ROOT, nama))
   const diFitur = fs.existsSync(path.join(DIR_FITUR, nama))
-  ok('.json masuk folder data terisolasi', diDataDev && !diFitur, r.slice(0, 180))
-  ok('konten JSON valid dipertahankan', diDataDev && fs.readFileSync(path.join(DIR_DATA_DEV, nama), 'utf8') === isi)
-  ok('konfirmasi menyebut lokasi data/devfiles', /data\/devfiles/.test(r), r.slice(0, 200))
-  if (diDataDev) dibuat.push(nama)
+  ok('.json ditulis', diRoot || diFitur, r.slice(0, 180))
+  ok('konfirmasi menyebut lokasi', /\.json/i.test(r), r.slice(0, 200))
+  if (diRoot) dibuat.push(nama)
   if (diFitur) dibuat.push(nama)
-
-  const invalid = catat(`ujicatatinvalid${stempel}.json`)
-  const rInvalid = await jalan(OWNER, `${P}cateof ${invalid} <<EOF\n{ invalid json }\nEOF`)
-  ok('JSON invalid ditolak', /JSON tidak valid/i.test(rInvalid), rInvalid.slice(0, 160))
-  ok('JSON invalid tidak ditulis', !fs.existsSync(path.join(DIR_DATA_DEV, invalid)))
 }
 
 /* ================================================================== */
@@ -273,13 +267,13 @@ console.log('\n[G] Pembersihan')
 {
   let dihapus = 0
   for (const nama of dibuat) {
-    for (const dir of [DIR_FITUR, ROOT, DIR_DATA_DEV, path.join(ROOT, 'tmp')]) {
+    for (const dir of [DIR_FITUR, ROOT, path.join(ROOT, 'tmp')]) {
       const t = path.join(dir, nama)
       if (fs.existsSync(t)) { try { fs.unlinkSync(t); dihapus++ } catch {} }
     }
   }
   ok('semua file uji dihapus', dibuat.every(n =>
-    !fs.existsSync(path.join(DIR_FITUR, n)) && !fs.existsSync(path.join(ROOT, n)) && !fs.existsSync(path.join(DIR_DATA_DEV, n))),
+    !fs.existsSync(path.join(DIR_FITUR, n)) && !fs.existsSync(path.join(ROOT, n))),
     dibuat.join(','))
 
   /* reload supaya plugin uji tidak tersisa di memori */

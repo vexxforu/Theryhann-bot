@@ -69,10 +69,10 @@ function publicHttpsUrl (value) {
   return url
 }
 
-export async function fetchPublic (input, options = {}, redirects = 3, fetchImpl = fetch) {
+async function fetchPublic (input, options = {}, redirects = 3) {
   let url = publicHttpsUrl(input)
   for (let i = 0; i <= redirects; i++) {
-    const response = await fetchImpl(url, { ...options, redirect: 'manual', signal: options.signal || AbortSignal.timeout(20_000) })
+    const response = await fetch(url, { ...options, redirect: 'manual', signal: options.signal || AbortSignal.timeout(20_000) })
     if (!REDIRECT_CODES.has(response.status)) return response
     if (i === redirects) throw new Error('Terlalu banyak pengalihan dari layanan.')
     const location = response.headers.get('location')
@@ -110,7 +110,7 @@ async function readLimited (response, maxBytes) {
   return Buffer.concat(chunks, total)
 }
 
-async function fetchJson (url, options = {}, fetchImpl = fetch) {
+async function fetchJson (url, options = {}) {
   const response = await fetchPublic(url, {
     ...options,
     headers: {
@@ -119,7 +119,7 @@ async function fetchJson (url, options = {}, fetchImpl = fetch) {
       referer: PAGE,
       ...(options.headers || {})
     }
-  }, 3, fetchImpl)
+  })
   const text = await response.text()
   if (!response.ok) throw new Error(`ToolifyGen membalas HTTP ${response.status}.`)
   let data
@@ -131,24 +131,21 @@ async function fetchJson (url, options = {}, fetchImpl = fetch) {
 function outputUrl (data) {
   const nodes = [data, data?.result, data?.output, data?.data, data?.result?.data, data?.output?.data]
   for (const node of nodes) {
-    const entries = Array.isArray(node) ? node : [node]
-    for (const item of entries) {
-      if (typeof item === 'string' && /^(?:https:\/\/|\/)/i.test(item)) return new URL(item, 'https://toolifygen.com').href
-      if (!item || typeof item !== 'object') continue
-      for (const key of ['outputUrl', 'outputImageUrl', 'resultUrl', 'resultImageUrl', 'imageUrl', 'upscaledImageUrl', 'processedImageUrl', 'downloadUrl', 'url']) {
-        if (typeof item[key] === 'string' && /^(?:https:\/\/|\/)/i.test(item[key])) return new URL(item[key], 'https://toolifygen.com').href
-      }
+    if (typeof node === 'string' && /^https:\/\//i.test(node)) return node
+    if (!node || typeof node !== 'object') continue
+    for (const key of ['outputUrl', 'resultUrl', 'imageUrl', 'upscaledImageUrl', 'downloadUrl', 'url']) {
+      if (typeof node[key] === 'string' && /^https:\/\//i.test(node[key])) return node[key]
     }
   }
   return ''
 }
 
-export async function upscaleToolifyGen (image, mime, { fetchImpl = fetch, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) } = {}) {
+async function upscaleToolifyGen (image, mime) {
   const form = new FormData()
   const blob = new Blob([image], { type: /^image\//i.test(mime) ? mime : 'image/jpeg' })
   form.append('image', blob, /^image\/png/i.test(mime) ? 'image.png' : 'image.jpg')
 
-  const upload = await fetchJson(`${API}/upload`, { method: 'POST', body: form, signal: AbortSignal.timeout(30_000) }, fetchImpl)
+  const upload = await fetchJson(`${API}/upload`, { method: 'POST', body: form, signal: AbortSignal.timeout(30_000) })
   const uploadData = upload?.data || upload
   if (!uploadData?.imageUrl || !uploadData?.storageKey) throw new Error('Layanan gagal menyiapkan unggahan gambar.')
 
@@ -160,19 +157,19 @@ export async function upscaleToolifyGen (image, mime, { fetchImpl = fetch, sleep
       options: { resolution: '2x', profile: 'hd', storageKey: uploadData.storageKey }
     }),
     signal: AbortSignal.timeout(30_000)
-  }, fetchImpl)
+  })
   const jobData = job?.data || job
   if (!jobData?.jobId) throw new Error('Layanan tidak mengembalikan ID pekerjaan.')
 
   for (let i = 0; i < 10; i++) {
-    await sleep(3000)
-    const status = await fetchJson(`${API}/job/${encodeURIComponent(jobData.jobId)}`, { signal: AbortSignal.timeout(20_000) }, fetchImpl)
+    await new Promise(resolve => setTimeout(resolve, 3000))
+    const status = await fetchJson(`${API}/job/${encodeURIComponent(jobData.jobId)}`, { signal: AbortSignal.timeout(20_000) })
     const info = status?.data || status
     if (String(info?.status || '').toLowerCase() === 'failed') throw new Error('Pekerjaan upscale ditolak atau gagal di ToolifyGen.')
     if (String(info?.status || '').toLowerCase() === 'completed') {
       const url = outputUrl(info) || outputUrl(status)
       if (!url) throw new Error('Upscale selesai tetapi URL gambar hasil tidak ditemukan.')
-      const response = await fetchPublic(url, { headers: { accept: 'image/*' }, signal: AbortSignal.timeout(30_000) }, 3, fetchImpl)
+      const response = await fetchPublic(url, { headers: { accept: 'image/*' }, signal: AbortSignal.timeout(30_000) })
       if (!response.ok) throw new Error(`Gagal mengunduh hasil (HTTP ${response.status}).`)
       const type = response.headers.get('content-type') || ''
       if (type && !/^image\//i.test(type)) throw new Error('Layanan mengembalikan file yang bukan gambar.')
@@ -185,7 +182,7 @@ export async function upscaleToolifyGen (image, mime, { fetchImpl = fetch, sleep
 export const hd2 = {
   command: ['hd2', 'tohd2', 'upscale2', 'perjelas2'],
   category: 'Tools',
-  description: '🔎 Upscale foto via ToolifyGen. Foto dikirim ke layanan pihak ketiga; balas/kirim foto lalu `.hd2`.',
+  description: '🔎 Upscale foto 2× via ToolifyGen. Foto dikirim ke layanan pihak ketiga; balas/kirim foto lalu `.hd2`.',
   limit: 0,
   cooldown: 20,
   run: async m => {
@@ -202,7 +199,7 @@ export const hd2 = {
       const result = await upscaleToolifyGen(image, source.mimetype)
       await m.sock.sendMessage(m.jid, {
         image: result,
-        caption: '✅ *HD2* — foto berhasil di-upscale oleh ToolifyGen.'
+        caption: '✅ *HD2* — foto berhasil di-upscale 2× oleh ToolifyGen.'
       }, { quoted: m.raw })
       await m.react?.('✅').catch(() => {})
     } catch (e) {

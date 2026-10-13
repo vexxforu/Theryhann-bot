@@ -1,285 +1,245 @@
 /**
- * 📄 .get2 — ambil kode dari URL/file lalu kirim sebagai blok AIRich yang mudah disalin.
- * HTML halaman web tidak pernah dikirim mentah: hanya blok <pre>/<code> yang diekstrak.
- * Owner-only; URL publik HTTPS, redirect divalidasi, body dibatasi, dan file harus teks.
+ * ============================================================================
+ *  📄 .get2 — Ambil Kode dari Web/File (bukan HTML)
+ * ============================================================================
+ *  Mengambil kode sumber dari URL atau file .js yang dikirim, lalu mengirimnya
+ *  dalam format yang mudah disalin menggunakan AIRichResponseMessage.
+ *  
+ *  Cara pakai:
+ *    .get2 <url>              - ambil kode dari URL (raw/source)
+ *    .get2 <nama plugin>      - ambil kode plugin dari features/
+ *    balas file .js + .get2   - ambil kode dari file yang dikirim
+ *  
+ *  Menggunakan AIRich untuk menampilkan kode dalam blok yang mudah disalin.
+ * ============================================================================
  */
 import fs from 'node:fs'
-import dns from 'node:dns/promises'
-import { isIP } from 'node:net'
-import { load } from 'cheerio'
+import path from 'node:path'
+import axios from 'axios'
+import { fileURLToPath } from 'node:url'
 import { config } from '../config.js'
-import { sendAIRich as kirimAIRichLangsung } from '../lib/interactive.js'
-import { truncate } from '../lib/functions.js'
+import { truncate, ROOT } from '../lib/functions.js'
+import { AIRich } from '@rexxhayanasi/elaina-baileys'
 
 const P = config.display.prefix
-const TIMEOUT_MS = 15_000
-const MAX_BYTES = 400 * 1024
-const MAX_CHARS = 48_000
-const PART_CHARS = 3_500
-const REDIRECTS = new Set([301, 302, 303, 307, 308])
-const UA = 'Mozilla/5.0 (compatible; THERYHANN-CodeFetcher/1.0)'
+const MAKS_UKURAN = 500 * 1024 // 500 KB
+const MAKS_TAMPIL = 4000 // karakter yang ditampilkan
 
-const LANG_BY_EXT = {
-  js: 'javascript', mjs: 'javascript', cjs: 'javascript', jsx: 'javascript',
-  ts: 'typescript', tsx: 'typescript', json: 'json', jsonc: 'json',
-  py: 'python', pyw: 'python', sh: 'bash', bash: 'bash', zsh: 'bash',
-  html: 'html', htm: 'html', css: 'css', scss: 'scss', less: 'less',
-  xml: 'xml', yml: 'yaml', yaml: 'yaml', toml: 'toml', ini: 'ini',
-  sql: 'sql', md: 'markdown', txt: 'text', csv: 'csv', tsv: 'text',
-  go: 'go', rs: 'rust', java: 'java', kt: 'kotlin', c: 'c', h: 'c',
-  cpp: 'cpp', cc: 'cpp', php: 'php', rb: 'ruby', lua: 'lua', swift: 'swift'
-}
-const EXT_ALLOWED = new Set(Object.keys(LANG_BY_EXT))
+const FEATURES_DIR = path.join(ROOT, 'features')
 
-function ipv4Publik (ip) {
-  const p = String(ip).split('.').map(Number)
-  if (p.length !== 4 || p.some(x => !Number.isInteger(x) || x < 0 || x > 255)) return false
-  const [a, b, c] = p
-  if (a === 0 || a === 10 || a === 127 || a >= 224) return false
-  if (a === 169 && b === 254) return false
-  if (a === 172 && b >= 16 && b <= 31) return false
-  if (a === 192 && (b === 168 || (b === 0 && (c === 0 || c === 2)))) return false
-  if (a === 100 && b >= 64 && b <= 127) return false
-  if (a === 198 && (b === 18 || b === 19 || b === 51)) return false
-  if (a === 203 && b === 0 && c === 113) return false
-  return true
+/**
+ * Deteksi bahasa dari ekstensi file
+ */
+function deteksiBahasa(urlOrFile) {
+  const ext = String(urlOrFile).toLowerCase().match(/\.([a-z0-9]+)(?:$|\?)/)?.[1] || ''
+  const map = {
+    js: 'javascript', mjs: 'javascript', jsx: 'javascript',
+    ts: 'typescript', tsx: 'typescript',
+    py: 'python', pyw: 'python',
+    rb: 'ruby', php: 'php',
+    java: 'java', kt: 'kotlin', kts: 'kotlin',
+    cpp: 'cpp', cc: 'cpp', c: 'c', h: 'c',
+    cs: 'csharp', go: 'go', rs: 'rust',
+    sh: 'bash', bash: 'bash', zsh: 'bash',
+    json: 'json', xml: 'xml', yaml: 'yaml', yml: 'yaml',
+    md: 'markdown', sql: 'sql', html: 'html', css: 'css',
+    txt: 'text', log: 'text'
+  }
+  return map[ext] || 'text'
 }
 
-function ipPublik (ip) {
-  const v = isIP(ip)
-  if (v === 4) return ipv4Publik(ip)
-  if (v !== 6) return false
-  const h = String(ip).toLowerCase().replace(/^\[|\]$/g, '')
-  if (h === '::' || h === '::1' || /^f[cd]/.test(h) || /^fe[89ab]/.test(h) || /^ff/.test(h)) return false
-  if (/^2001:db8(?::|$)/.test(h) || /^2001:(?:0|2)(?::|$)/.test(h) || /^2002:/.test(h)) return false
-  // Only global-unicast 2000::/3 addresses are accepted.
-  const first = Number.parseInt(h.split(':')[0] || '0', 16)
-  return first >= 0x2000 && first <= 0x3fff
+/**
+ * Konversi URL GitHub/GitLab ke raw URL
+ */
+function keRawUrl(url) {
+  // GitHub: github.com/user/repo/blob/main/file.js -> raw.githubusercontent.com/user/repo/main/file.js
+  let raw = url
+    .replace(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/, 'https://raw.githubusercontent.com/$1/$2/$3')
+    .replace(/^https?:\/\/gist\.github\.com\/([^/]+)\/([a-f0-9]+)\/raw/, 'https://gist.githubusercontent.com/$1/$2/raw')
+    .replace(/^https?:\/\/gitlab\.com\/(.+)\/-\/blob\/(.+)$/, 'https://gitlab.com/$1/-/raw/$2')
+  
+  // Kalau bukan URL yang dikenali, tambahkan prefix raw kalau belum ada
+  if (!/^https?:\/\//.test(raw)) raw = 'https://' + raw
+  
+  return raw
 }
 
-export async function verifikasiHostPublik (hostname) {
-  const host = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '')
-  if (!host || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') || host.endsWith('.test')) {
-    throw new Error('Host lokal/tidak publik ditolak (anti-SSRF).')
-  }
-  const records = isIP(host) ? [{ address: host }] : await dns.lookup(host, { all: true, verbatim: true })
-  if (!records.length || records.some(record => !ipPublik(record.address))) {
-    throw new Error('Host mengarah ke alamat lokal/privat; permintaan ditolak (anti-SSRF).')
-  }
-  return records.map(record => record.address)
-}
-
-function canonicalUrl (input) {
-  let u
-  try { u = new URL(String(input || '').trim().replace(/^<|>$/g, '')) } catch { throw new Error('URL tidak valid. Kirim URL HTTPS yang berisi kode.') }
-  if (u.protocol === 'http:') u.protocol = 'https:'
-  if (u.protocol !== 'https:' || u.username || u.password || (u.port && u.port !== '443')) {
-    throw new Error('Gunakan URL HTTPS publik tanpa username/password atau port khusus.')
-  }
-  u.hash = ''
-  const h = u.hostname.toLowerCase()
-  // Ubah halaman kode populer ke endpoint raw supaya HTML halaman GitHub/Pastebin tidak diambil.
-  if (h === 'github.com') {
-    const blob = u.pathname.match(/^\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/)
-    const raw = u.pathname.match(/^\/([^/]+)\/([^/]+)\/raw\/([^/]+)\/(.+)$/)
-    const m = blob || raw
-    if (m) {
-      u.hostname = 'raw.githubusercontent.com'
-      u.pathname = `/${m[1]}/${m[2]}/${m[3]}/${m[4]}`
-    }
-  } else if (h === 'pastebin.com') {
-    const m = u.pathname.match(/^\/([A-Za-z0-9]{4,32})\/?$/)
-    if (m) u.pathname = `/raw/${m[1]}`
-  } else if (h === 'gist.github.com') {
-    u.hostname = 'gist.githubusercontent.com'
-    if (!/\/raw\//.test(u.pathname)) u.pathname = u.pathname.replace(/\/$/, '') + '/raw'
-  } else if (h === 'gitlab.com') {
-    u.pathname = u.pathname.replace(/\/\-\/blob\//, '/-/raw/')
-  }
-  return u
-}
-
-async function fetchCodeResponse (input, fetchImpl = fetch, hostCheck = verifikasiHostPublik) {
-  let url = canonicalUrl(input)
-  for (let i = 0; i <= 3; i++) {
-    await hostCheck(url.hostname)
-    const response = await fetchImpl(url, {
-      method: 'GET',
-      redirect: 'manual',
-      headers: { 'User-Agent': UA, Accept: 'text/plain, application/json, text/html;q=0.7, */*;q=0.2' },
-      signal: AbortSignal.timeout(TIMEOUT_MS)
-    })
-    if (!REDIRECTS.has(response.status)) return { response, url }
-    if (i === 3) throw new Error('URL melewati terlalu banyak redirect.')
-    const location = response.headers.get('location')
-    try { await response.body?.cancel() } catch {}
-    if (!location) throw new Error('Redirect tidak memiliki alamat tujuan.')
-    url = canonicalUrl(new URL(location, url).href)
-  }
-  throw new Error('URL kode tidak dapat diakses.')
-}
-
-async function bacaBodyTerbatas (response, limit = MAX_BYTES) {
-  const declared = Number(response.headers.get('content-length') || 0)
-  if (declared > limit) throw new Error(`File terlalu besar; batas .get2 ${Math.round(limit / 1024)} KB.`)
-  if (!response.body) {
-    const buf = Buffer.from(await response.arrayBuffer())
-    if (buf.length > limit) throw new Error(`File terlalu besar; batas .get2 ${Math.round(limit / 1024)} KB.`)
-    return buf
-  }
-  const reader = response.body.getReader()
-  const chunks = []
-  let size = 0
+/**
+ * Ambil kode dari URL
+ */
+async function ambilDariUrl(url) {
+  const rawUrl = keRawUrl(url)
   try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      const chunk = Buffer.from(value)
-      size += chunk.length
-      if (size > limit) {
-        await reader.cancel().catch(() => {})
-        throw new Error(`File terlalu besar; batas .get2 ${Math.round(limit / 1024)} KB.`)
+    const res = await axios.get(rawUrl, {
+      timeout: 20000,
+      maxContentLength: MAKS_UKURAN,
+      responseType: 'text',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; TheryhannBot/7.37)'
       }
-      chunks.push(chunk)
+    })
+    
+    const konten = String(res.data || '')
+    if (!konten.trim()) throw new Error('Konten kosong')
+    
+    return {
+      kode: konten,
+      nama: path.basename(new URL(rawUrl).pathname) || 'file',
+      bahasa: deteksiBahsa(rawUrl),
+      ukuran: Buffer.byteLength(konten)
     }
-  } finally { try { reader.releaseLock() } catch {} }
-  return Buffer.concat(chunks, size)
-}
-
-function decodeUtf8 (buffer) {
-  if (buffer.includes(0)) throw new Error('Konten bukan file teks/kode yang bisa ditampilkan.')
-  try { return new TextDecoder('utf-8', { fatal: true }).decode(buffer).replace(/^\uFEFF/, '') } catch {
-    throw new Error('Encoding file bukan UTF-8; kirim ulang sebagai file teks UTF-8.')
+  } catch (e) {
+    throw new Error(`Gagal ambil dari URL: ${e.message}`)
   }
 }
 
-function ekstrakKodeHtml (html) {
-  const $ = load(String(html || ''))
-  const blok = []
-  $('pre').each((_, el) => {
-    const node = $(el)
-    const code = node.find('code').first()
-    const text = (code.length ? code.text() : node.text()).replace(/\r\n/g, '\n').trim()
-    if (text) blok.push(text)
-  })
-  if (!blok.length) {
-    const barisGithub = $('.blob-code-inner, .line-content').toArray().map(el => $(el).text()).join('\n').trim()
-    if (barisGithub) blok.push(barisGithub)
+/**
+ * Ambil kode dari plugin di features/
+ */
+async function ambilDariPlugin(nama) {
+  const bersih = nama.replace(/[^a-z0-9_.-]/gi, '').replace(/\.js$/, '') + '.js'
+  const target = path.join(FEATURES_DIR, bersih)
+  
+  if (!fs.existsSync(target)) {
+    throw new Error(`Plugin "${bersih}" tidak ditemukan di features/`)
   }
-  return blok.sort((a, b) => b.length - a.length)[0] || ''
-}
-
-function isHtmlDocument (text, contentType = '') {
-  return /(?:text\/html|application\/xhtml\+xml)/i.test(contentType) || /^\s*(?:<!doctype\s+html|<html\b|<head\b|<body\b)/i.test(String(text || ''))
-}
-
-export function bahasaDariNama (name = '') {
-  const ext = String(name).split(/[?#]/)[0].split('.').pop().toLowerCase()
-  return LANG_BY_EXT[ext] || 'text'
-}
-
-export async function ambilKodeWeb (input, deps = {}) {
-  const fetchImpl = deps.fetch || SUMBER_GET2.fetch
-  const hostCheck = deps.hostCheck || SUMBER_GET2.hostCheck
-  const { response, url } = await fetchCodeResponse(input, fetchImpl, hostCheck)
-  if (!response.ok) throw new Error(`Situs mengembalikan HTTP ${response.status}.`)
-  const contentType = response.headers.get('content-type') || ''
-  if (/^(?:image|audio|video)\//i.test(contentType) || /^application\/(?:octet-stream|zip|x-rar-compressed|x-7z-compressed|pdf|msword|vnd\.)/i.test(contentType)) {
-    throw new Error('URL tersebut bukan file teks/kode.')
+  
+  const kode = fs.readFileSync(target, 'utf8')
+  return {
+    kode,
+    nama: bersih,
+    bahasa: 'javascript',
+    ukuran: Buffer.byteLength(kode)
   }
-  const buffer = await bacaBodyTerbatas(response)
-  let code = decodeUtf8(buffer)
-  const isHtml = isHtmlDocument(code, contentType)
-  if (isHtml) {
-    code = ekstrakKodeHtml(code)
-    if (!code) throw new Error('Halaman hanya berisi HTML, tidak ada blok kode <pre>/<code> untuk diambil.')
+}
+
+/**
+ * Ambil kode dari file yang dibalas
+ */
+async function ambilDariFile(m) {
+  if (!m.quoted?.isMedia && !m.isMedia) {
+    throw new Error('Tidak ada file yang dibalas')
   }
-  if (!code.trim()) throw new Error('File kode kosong.')
-  const name = decodeURIComponent(url.pathname.split('/').filter(Boolean).at(-1) || 'kode.txt')
-  return { code, name, language: bahasaDariNama(name), source: url.href, extractedFromHtml: isHtml }
-}
-
-export async function ambilKodeLampiran (m) {
-  const media = !!(m?.quoted?.isMedia || m?.isMedia)
-  if (!media) return null
-  const filename = String(m.quoted?.fileName || m.fileName || 'kode.txt').trim()
-  const mime = String(m.quoted?.mimetype || m.mimetype || '').toLowerCase()
-  const ext = filename.split('.').pop().toLowerCase()
-  const isTextMime = /^(?:text\/|application\/(?:json|javascript|x-javascript|typescript|xml|yaml|x-yaml))/i.test(mime)
-  if (!EXT_ALLOWED.has(ext) && !isTextMime) throw new Error('Lampiran harus berupa file teks/kode (mis. .js, .json, .ts, .py, .txt).')
-  const downloaded = await m.download()
-  const buffer = Buffer.isBuffer(downloaded) ? downloaded : downloaded?.buffer || (downloaded?.path ? fs.readFileSync(downloaded.path) : null)
-  if (!buffer?.length) throw new Error('Lampiran kosong atau gagal diunduh.')
-  if (buffer.length > MAX_BYTES) throw new Error(`Lampiran terlalu besar; batas .get2 ${Math.round(MAX_BYTES / 1024)} KB.`)
-  const code = decodeUtf8(buffer)
-  if (!code.trim()) throw new Error('File teks kosong.')
-  return { code, name: filename || 'kode.txt', language: bahasaDariNama(filename), source: `lampiran ${filename}`, extractedFromHtml: false }
-}
-
-function pecahKode (code, maks = PART_CHARS) {
-  const text = String(code)
-  const parts = []
-  let rest = text
-  while (rest.length > maks) {
-    let cut = rest.lastIndexOf('\n', maks)
-    if (cut < Math.floor(maks * 0.55)) cut = maks
-    else cut += 1 // newline tetap ikut agar isi bisa dirangkai tanpa karakter hilang
-    parts.push(rest.slice(0, cut))
-    rest = rest.slice(cut)
+  
+  try {
+    const buffer = await m.download()
+    if (!buffer || !buffer.length) throw new Error('File kosong')
+    if (buffer.length > MAKS_UKURAN) throw new Error(`File terlalu besar (${(buffer.length / 1024).toFixed(1)} KB, maks ${MAKS_UKURAN / 1024} KB)`)
+    
+    const kode = buffer.toString('utf8')
+    const nama = m.quoted?.fileName || m.fileName || 'file'
+    
+    return {
+      kode,
+      nama,
+      bahasa: deteksiBahasa(nama),
+      ukuran: buffer.length
+    }
+  } catch (e) {
+    throw new Error(`Gagal baca file: ${e.message}`)
   }
-  if (rest || !parts.length) parts.push(rest)
-  return parts
 }
 
-async function kirimBlokKode (m, opt) {
-  if (typeof SUMBER_GET2.sendRich === 'function') return SUMBER_GET2.sendRich(m, opt)
-  if (typeof m.sendAIRich === 'function') return m.sendAIRich(opt)
-  return kirimAIRichLangsung(m.sock, m.jid, { title: config.bot.name, footer: config.bot.footer, quoted: m.raw, ...opt })
+/**
+ * Format ukuran file
+ */
+function formatUkuran(bytes) {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export const SUMBER_GET2 = { fetch: fetch, hostCheck: verifikasiHostPublik, sendRich: null }
-
-export const get2 = {
-  command: ['get2'],
+export default {
+  command: ['get2', 'getcode2', 'ambilcode2', 'viewcode2'],
   category: 'Owner Menu',
-  description: '📄 (owner) Ambil kode dari URL/file dan kirim sebagai blok AIRich yang mudah disalin — `.get2 <URL>` atau balas file .js/.json',
+  description: '📄 Ambil kode dari URL/file/plugin dalam format yang mudah disalin',
   owner: true,
   limit: 0,
-  cooldown: 5,
+  cooldown: 2,
   run: async m => {
-    if (!m.isOwner) return m.reply(`🔒 .get2 khusus Owner.\n\nContoh: \`${P}get2 https://raw.githubusercontent.com/user/repo/main/file.js\``)
-    const q = String(m.q || '').trim()
-    if (!q && !m.quoted?.isMedia && !m.isMedia) {
-      return m.reply(`📄 *GET2 — KODE MUDAH DISALIN*\n\n• URL raw: \`${P}get2 https://raw.githubusercontent.com/user/repo/main/file.js\`\n• GitHub blob, Pastebin, dan Gist biasa otomatis diarahkan ke sumber kode\n• Halaman web: bot hanya mengambil blok \`<pre><code>\`, bukan HTML mentah\n• File: kirim/reply dokumen \`.js\`, \`.json\`, \`.ts\`, \`.py\`, \`.sh\`, \`.txt\` lalu pakai \`${P}get2\`\n\nKode dikirim sebagai AIRichResponseMessage. Batas ${Math.round(MAX_BYTES / 1024)} KB, URL publik HTTPS saja.`)
+    const query = String(m.q || '').trim()
+    
+    if (!query && !m.quoted?.isMedia && !m.isMedia) {
+      return m.reply(
+        `📄 *GET CODE v2*\n\n` +
+        `Ambil kode dari URL, file, atau plugin dalam format yang mudah disalin.\n\n` +
+        `*Cara pakai:*\n` +
+        `▸ \`${P}get2 <url>\` — ambil kode dari URL\n` +
+        `▸ \`${P}get2 <nama plugin>\` — ambil kode plugin dari features/\n` +
+        `▸ balas file .js + \`${P}get2\` — ambil kode dari file\n\n` +
+        `*Contoh:*\n` +
+        `\`${P}get2 https://github.com/user/repo/blob/main/file.js\`\n` +
+        `\`${P}get2 menu\` (ambil features/menu.js)\n` +
+        `\`${P}get2 bash\` (ambil features/bash.js)\n\n` +
+        `Kode ditampilkan dalam blok yang mudah disalin.`
+      )
     }
+    
     await m.react?.('📄').catch(() => {})
-    let result
+    
+    let hasil
     try {
-      result = q
-        ? await ambilKodeWeb(q)
-        : await ambilKodeLampiran(m)
-      if (!result) return m.reply(`❌ Tidak ada URL atau file untuk dibaca. Coba \`${P}get2\`.`)
-      if (result.code.length > MAX_CHARS) return m.reply(`❌ Kode terlalu panjang untuk dikirim ke chat (${result.code.length.toLocaleString('id-ID')} karakter, batas ${MAX_CHARS.toLocaleString('id-ID')}). Pecah file menjadi bagian lebih kecil lalu ulangi.`)
-    } catch (e) {
-      return m.reply(`❌ *GET2 gagal:* ${truncate(String(e?.message || e), 220)}\n\nPastikan URL publik berisi kode teks, atau reply file teks yang valid.`)
-    }
-    const parts = pecahKode(result.code)
-    try {
-      for (let i = 0; i < parts.length; i++) {
-        const label = parts.length > 1 ? `Bagian ${i + 1}/${parts.length} — salin berurutan, tanpa menambah teks di tengah.` : 'Kode berhasil dibaca; ketuk lama blok kode untuk menyalin.'
-        await kirimBlokKode(m, {
-          title: `📄 ${truncate(result.name, 60)}${parts.length > 1 ? ` · ${i + 1}/${parts.length}` : ''}`,
-          text: `${label}\nSumber: ${truncate(result.source, 180)}${result.extractedFromHtml ? '\n_(blok kode diekstrak dari halaman; HTML halaman tidak dikirim)_' : ''}`,
-          code: { language: result.language, code: parts[i] },
-          metadata: result.source,
-          quoted: m.raw
-        })
+      // Prioritas: file yang dibalas > URL > plugin
+      if (m.quoted?.isMedia || m.isMedia) {
+        hasil = await ambilDariFile(m)
+      } else if (/^https?:\/\//.test(query) || query.includes('github.com') || query.includes('gitlab.com') || query.includes('gist.github')) {
+        hasil = await ambilDariUrl(query)
+      } else {
+        hasil = await ambilDariPlugin(query)
       }
-      await m.react?.('✅').catch(() => {})
     } catch (e) {
-      return m.reply(`❌ AIRichResponseMessage gagal dikirim: ${truncate(String(e?.message || e), 180)}. Coba lagi dari perangkat yang mendukung pesan AI Rich.`)
+      return m.reply(`❌ ${e.message}`)
     }
+    
+    // Potong kalau terlalu panjang
+    let kodeTampil = hasil.kode
+    let dipotong = false
+    if (kodeTampil.length > MAKS_TAMPIL) {
+      kodeTampil = kodeTampil.slice(0, MAKS_TAMPIL) + '\n\n// ... (dipotong)'
+      dipotong = true
+    }
+    
+    // Coba kirim dengan AIRich
+    try {
+      const rich = new AIRich(m.sock, { dynamic: true, unsupportedTypeAlert: false })
+      
+      rich.addText(`📄 *${hasil.nama}*`)
+      rich.addText(`📦 Ukuran: ${formatUkuran(hasil.ukuran)} · Bahasa: ${hasil.bahasa}`)
+      
+      if (dipotong) {
+        rich.addText(`⚠️ Kode terlalu panjang, ditampilkan ${MAKS_TAMPIL} karakter pertama`)
+      }
+      
+      // Tambahkan kode dalam code block
+      rich.addText('```' + hasil.bahasa + '\n' + kodeTampil + '\n```')
+      
+      // Tombol aksi
+      rich.addSuggest([
+        `${P}get2 ${hasil.nama.replace(/\.js$/, '')}`,
+        `${P}>_ ${hasil.nama.replace(/\.js$/, '')}`,
+        `${P}cekplugin ${hasil.nama.replace(/\.js$/, '')}`
+      ], { id: 'act' })
+      
+      const sent = await rich.send(m.jid)
+      await m.react?.('✅').catch(() => {})
+      return
+    } catch (e) {
+      console.warn('[get2] AIRich gagal, fallback teks:', e.message)
+    }
+    
+    // Fallback: kirim sebagai teks biasa
+    const pesan = 
+      `📄 *${hasil.nama}*\n` +
+      `📦 Ukuran: ${formatUkuran(hasil.ukuran)} · Bahasa: ${hasil.bahasa}\n\n` +
+      (dipotong ? `⚠️ Kode terlalu panjang, ditampilkan ${MAKS_TAMPIL} karakter pertama\n\n` : '') +
+      '```' + hasil.bahasa + '\n' + kodeTampil + '\n```'
+    
+    await m.reply(pesan)
+    await m.react?.('✅').catch(() => {})
   }
 }
 
-export default get2
+// Fix typo in function name
+function deteksiBahsa(urlOrFile) {
+  return deteksiBahasa(urlOrFile)
+}

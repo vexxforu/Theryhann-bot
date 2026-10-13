@@ -16,8 +16,8 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { exec } from 'node:child_process'
 import { config } from '../config.js'
-import { jalanPerintah, formatHasil, folderChat, pindahFolder } from './bash.js'
 import { ROOT, truncate, formatSize, formatDuration, sniffMime } from '../lib/functions.js'
 import {
   loadDB, saveDB, getUser, allUsers, allGroups, getSettings, setSetting, getStats
@@ -575,13 +575,15 @@ export const ownerSystemCmds = [
     return m.reply(`📦 *DEPENDENSI*\n\nNode: ${process.version} · npm ${(() => { try { return fs.existsSync(path.join(ROOT, 'node_modules')) ? 'ada node_modules' : 'tidak ada node_modules' } catch { return '?' } })()}\n\n${rows.join('\n')}\n\n${rows.some(r => r.startsWith('❌')) ? `⚠️ Jalankan: npm install --no-audit --no-fund` : '✅ Semua paket terpasang.'}`)
   }),
 
-  owner('jalankanperintah', ['shell', 'exec2'], 'Jalankan satu perintah dari allowlist runner aman (read-only)', async m => {
-    const cmd = String(m.q || '').trim()
-    if (!cmd) return m.reply(`Contoh: ${P}jalankanperintah ls -la\n\nRunner dibatasi; bukan shell bebas. Utilitas yang tersedia bergantung host.`)
-    const cd = cmd.match(/^cd(?:\s+([\s\S]*))?$/i)
-    if (cd) return m.reply(await pindahFolder(m.jid, cd[1] || '~'))
-    const hasil = await jalanPerintah(cmd, folderChat(m.jid), 15)
-    return m.reply(formatHasil(cmd, hasil))
+  owner('jalankanperintah', ['shell', 'exec2'], 'Jalankan perintah shell (hati-hati!)', async m => {
+    const cmd = m.q
+    if (!cmd) return m.reply(`Contoh: ${P}jalankanperintah ls -la\n\n⚠️ Berjalan di folder bot dengan user Termux.`)
+    const hasil = await new Promise(res => {
+      exec(cmd, { cwd: ROOT, timeout: 60000, maxBuffer: 1024 * 512 }, (err, stdout, stderr) => {
+        res({ err: err?.message, stdout: stdout || '', stderr: stderr || '' })
+      })
+    })
+    return m.reply(`💻 *\`$ ${truncate(cmd, 120)}\`*\n\n${hasil.stdout ? '```\n' + truncate(hasil.stdout, 2400) + '\n```' : ''}${hasil.stderr ? '\n⚠️ stderr:\n```\n' + truncate(hasil.stderr, 800) + '\n```' : ''}${hasil.err && !hasil.stdout && !hasil.stderr ? '\n❌ ' + hasil.err : ''}${!hasil.stdout && !hasil.stderr && !hasil.err ? '(tidak ada output)' : ''}`)
   }, 'ls -la'),
 
   owner('bacafile', ['lihatfile', 'catfile'], 'Baca isi file di folder bot', m => {

@@ -18,7 +18,7 @@ rm -f "$OUT"
   find . -type f \
     ! -path './node_modules/*' ! -path './.git/*' \
     ! -path './session/*' ! -path './tmp/*' ! -path './reports/*' \
-    ! -path './database/*' ! -path './data/devfiles/*' ! -path './backup-*/*' ! -path './.update-*/*' \
+    ! -path './database/*' ! -path './backup-*/*' ! -path './.update-*/*' \
     ! -name '*.log' ! -name '*.zip' ! -name '.DS_Store' \
     ! -name '.env' ! -name '.env.*' \
     ! -path './media/menu/*.jpg' ! -path './media/welcome/*.jpg' \

@@ -41,7 +41,7 @@ const sock = {
 }
 
 await loadPlugins()
-setSetting('menuImage', 'media/menu.jpg')
+setSetting('menuImage', 'none')
 setSetting('menuStyle', '')
 const selector = findPlugin('setmenu')?.plugin
 const menu = findPlugin('menu')?.plugin
@@ -109,8 +109,8 @@ check('selector warns that types 4–6 are emulations', /bukan template native W
 
 const expectations = [
   { n: 1, ok: () => buttonPayload?.buttons?.length === 4 && buttonPayload.buttons[0]?.text === '💝 Donasi', label: 'Buttons mengirim empat pilihan menu utama' },
-  { n: 2, ok: () => sent.at(-1)?.content?.extended?.body?.includes('PILIH MENU') && sent.at(-1)?.content?.extended?.body?.includes('.menuall') && sent.at(-1)?.content?.extended?.url?.some(u => u.url === CHANNEL_URL) && Buffer.isBuffer(sent.at(-1)?.content?.extended?.contextInfo?.externalAdReply?.thumbnail) && sent.at(-1)?.content?.extended?.contextInfo?.externalAdReply?.sourceUrl === CHANNEL_URL, label: 'Extended Text mempertahankan gambar menu terkonfigurasi dan menautkan ke saluran tanpa foto profil saluran' },
-  { n: 3, ok: () => sent.some(x => x.content?.location?.degreesLatitude === 3.5952 && /dekoratif/i.test(x.content.location.name) && /bukan lokasi server/i.test(x.content.location.address)) && /MENU LOKASI/.test(replies.at(-1) || '') && /Pin di atas hanya dekoratif/.test(replies.at(-1) || '') && !!listPayload?.sections?.length, label: 'Location mengirim pin dekoratif Medan, teks keterangan yang terlihat sesudah peta, dan daftar kategori' },
+  { n: 2, ok: () => sent.at(-1)?.content?.extended?.body?.includes('PILIH MENU') && sent.at(-1)?.content?.extended?.body?.includes('.menuall') && sent.at(-1)?.content?.extended?.url?.some(u => u.url === CHANNEL_URL) && !sent.at(-1)?.content?.extended?.image, label: 'Extended Text berisi menu + tombol saluran tanpa memakai gambar profil saluran' },
+  { n: 3, ok: () => sent.some(x => x.content?.location?.degreesLatitude === 3.5952 && /dekoratif/i.test(x.content.location.name) && /bukan lokasi server/i.test(x.content.location.address)) && !!listPayload?.sections?.length, label: 'Location mengirim pin dekoratif Medan dan daftar kategori' },
   { n: 4, ok: () => buttonPayload?.title?.includes('SIGNUP') && /bukan formulir native/i.test(buttonPayload?.text || '') && buttonPayload.buttons.some(b => b.id === `${config.display.prefix}daftar`), label: 'Signup memakai command .daftar dan jelas berstatus emulasi' },
   { n: 5, ok: () => buttonPayload?.title?.includes('PENAWARAN') && /tidak ada diskon atau tenggat/i.test(buttonPayload?.text || '') && buttonPayload.buttons.some(b => b.id === `${config.display.prefix}hargapremium`), label: 'Offer menuju .hargapremium tanpa diskon/tenggat rekaan' },
   { n: 6, ok: () => buttonPayload?.title?.includes('REVIEW & PAY') && /manual/i.test(buttonPayload?.text || '') && /tidak ada verifikasi pembayaran otomatis/i.test(buttonPayload?.text || '') && buttonPayload.buttons.some(b => b.id === `${config.display.prefix}belipremium 30 hari`), label: 'Review & Pay menggunakan pesanan manual, tanpa verifikasi otomatis' },

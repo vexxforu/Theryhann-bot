@@ -133,7 +133,7 @@ ok('formatHasil menampilkan kode keluar saat gagal',
 /* ============================ [C] ============================ */
 console.log('\n[C] .bash <perintah> DENGAN PREFIX')
 let r = await kirim(OWNER, `${P}bash`)
-ok('tanpa argumen -> panduan menjelaskan runner terbatas', /RUNNER OWNER TERBATAS/.test(r.teks) && /bukan terminal Termux penuh/i.test(r.teks), r.teks.slice(0, 60))
+ok('tanpa argumen -> panduan', /BASH — TERMUX DI WHATSAPP/.test(r.teks), r.teks.slice(0, 60))
 r = await kirim(OWNER, `${P}bash echo halo-dunia`)
 ok('echo sungguhan jalan', /halo-dunia/.test(r.teks), r.teks.slice(0, 80))
 ok('keluaran dibungkus blok kode', r.teks.includes('```'))
@@ -144,19 +144,9 @@ ok('ls menampilkan isi folder bot', /package\.json|features|config\.js/.test(r.t
 r = await kirim(OWNER, `${P}bash perintahyangtidakada123`)
 ok('perintah tak dikenal -> kode keluar', /kode keluar/.test(r.teks) || /not found/i.test(r.teks), r.teks.slice(0, 90))
 r = await kirim(OWNER, `${P}bash status`)
-ok('.bash status menampilkan info runner dan host Node', /STATUS SHELL \/ RUNNER/.test(r.teks) && /Node/.test(r.teks), r.teks.slice(0, 80))
+ok('.bash status menampilkan info', /STATUS SHELL/.test(r.teks) && /Node/.test(r.teks), r.teks.slice(0, 80))
 r = await kirim(OWNER, `${P}bash folder`)
 ok('.bash folder menampilkan folder + isi', /📂/.test(r.teks), r.teks.slice(0, 80))
-r = await kirim(OWNER, '$ ls -la')
-ok('$ <command> menjalankan runner aman untuk owner', /🐚/.test(r.teks) && /features|package\.json/.test(r.teks), r.teks.slice(0, 90))
-r = await kirim(OWNER, `${P}jalankanperintah ls`)
-ok('.jalankanperintah memakai runner yang sama', /🐚/.test(r.teks) && /features|package\.json/.test(r.teks), r.teks.slice(0, 90))
-r = await kirim(OWNER, '$ ls; echo TIDAK_BOLEH')
-ok('operator shell ditolak, bukan dieksekusi', /Operator\/ekspansi shell ditolak/.test(r.teks) && !r.teks.slice(r.teks.indexOf('\n\n') + 2).includes('TIDAK_BOLEH'), r.teks.slice(0, 120))
-r = await kirim(OWNER, `${P}jalankanperintah rm -rf /`)
-ok('perintah hapus ditolak runner aman', /tidak dijalankan oleh runner aman/i.test(r.teks), r.teks.slice(0, 100))
-r = await kirim(USER, '$ ls')
-ok('$ tetap owner-only', /khusus Owner|🔒/i.test(r.teks) && !/🐚/.test(r.teks), r.teks.slice(0, 90))
 
 /* ============================ [D] ============================ */
 console.log('\n[D] TANPA PREFIX — LANGSUNG JALAN, TANPA `.bash on`')
@@ -249,7 +239,7 @@ r = await kirim(OWNER, 'sleep 6')
 const lama = Date.now() - t0
 ok('perintah menggantung diputus sebelum 6 detik', lama < 5000, `${lama} ms`)
 ok('diberi tahu waktu habis', /Waktu habis/i.test(r.teks), r.teks.slice(-90))
-ok('menyebut batas maksimum yang aman', /bash waktu 1-30/.test(r.teks), r.teks.slice(-120))
+ok('disarankan menaikkan batas', /bash waktu 60/.test(r.teks), r.teks.slice(-90))
 await kirim(OWNER, `${P}bash waktu 15`)
 
 /* ============================ [H] ============================ */

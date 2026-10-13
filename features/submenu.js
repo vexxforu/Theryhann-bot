@@ -145,7 +145,7 @@ export function sectionsSticker () {
     { t: '🎨 AI STYLE', cmds: ['toanime', 'toputih', 'tozombie', 'toghibli', 'tofigure', 'tocartoon', 'tolego', 'tochibi', 'tosketsa', 'topixel'] },
     { t: '✨ EFEK CEPAT', cmds: ['skartun', 'sneon', 'ssepia', 'spixel', 'sbingkai', 'sbulatbingkai', 'sdingin', 'shangat', 'svignette', 'scermin4', 'sblur', 'sbright', 'scircle', 'scontrast', 'sflip', 'sflipv', 'sgaussian', 'sgray', 'sinvert', 'sopacity', 'sposter', 'srotate'] },
     { t: '🖌️ EFEK LENGKAP', cmds: ['stikersepia', 'stikerpixelate', 'stikerthreshold', 'stikerduotone', 'stikerborder', 'stikerrounded', 'stikervignette', 'stikerwarm', 'stikercool', 'stikerjadul', 'stikerhue', 'stikersaturasi', 'stikerdesaturasi', 'stikerresize', 'stikerkompres', 'stikerpersegi', 'stikerwatermark', 'stikercrop', 'stikerkaleidoskop', 'stikerlatarputih', 'stikerupscale', 'stikerdownscale'] },
-    { t: '💥 KOMPOSIT & FOTO HD', cmds: ['meledak', 'hd', 'hd2', 'removebg'] },
+    { t: '💥 KOMPOSIT FOTO', cmds: ['meledak'] },
     { t: '🔧 INFO', cmds: ['infostiker', 'infoimg', 'tobase64img', 'warnadominan'] }
   ], 'Sticker Menu')
 }
@@ -153,10 +153,9 @@ export function sectionsSticker () {
 /* ===================== 🕵️ MENUSTALKER ===================== */
 export function sectionsStalker () {
   return rakit([
-    { t: '📱 SOSIAL MEDIA & PINTEREST', cmds: ['sosmed', 'pin', 'pin2', 'igstalk', 'igstalk2', 'tiktokstalk', 'ytstalk', 'fbstalk', 'threadsstalk', 'pinstalk', 'telestalk', 'spotifystalk'] },
+    { t: '📱 SOSIAL MEDIA', cmds: ['sosmed', 'igstalk', 'tiktokstalk', 'ytstalk', 'fbstalk', 'threadsstalk', 'pinstalk', 'telestalk', 'spotifystalk'] },
     { t: '🎮 GAME', cmds: ['robloxstalk', 'steamstalk', 'mcstalk', 'chessstalk'] },
-    { t: '💻 DEVELOPER', cmds: ['githubstalk', 'npmstalk'] },
-    { t: '🌐 UTILITAS INTERNET', cmds: ['dnsall', 'doh', 'tempmail', 'tempmail2'] }
+    { t: '💻 DEVELOPER', cmds: ['githubstalk', 'npmstalk'] }
   ])
 }
 
@@ -164,7 +163,7 @@ export function sectionsStalker () {
 export function sectionsInteraktif () {
   return rakit([
     { t: '🎮 HUB GAME HTML', cmds: ['gamerespon', 'gameresponlist', 'arcade', 'arcade2', 'arcade3', 'arcade4', 'arcade5', 'pastel', 'pastel2', 'casino', 'kasinorpg', 'jadul', 'arcadecerita', 'multiplayer'] },
-    { t: '🎧 MUSIK & VIDEO', cmds: ['yt', 'play', 'play2', 'play3', 'playvid', 'ytrich', 'richmusic', 'spotifylive', 'spotifyvibe', 'liriklagu3', 'playlists'] },
+    { t: '🎧 MUSIK & VIDEO', cmds: ['play', 'play2', 'play3', 'playvid', 'ytrich', 'richmusic', 'spotifylive', 'spotifyvibe', 'liriklagu3', 'playlists'] },
     { t: '🪪 KARTU HTML', cmds: ['profile', 'premcard', 'welcome', 'menuapp', 'menu2', 'menu3', 'ping2', 'qris', 'lbmenu'] },
     { t: '😈 PRANK', cmds: ['hack'] },
     { t: '🏆 RANK & KASINO', cmds: ['lbgame', 'slot', 'topplayer', 'topgame'] }
@@ -185,13 +184,12 @@ export function sectionsFun () {
 }
 
 /* ===================== 👑 MENUOWNER ===================== */
-const DEV_CMDS = new Set(['devmenu', '>_', 'get2', 'addplugin', 'getcode', 'cekplugin', 'plugin', 'pluginrinci', 'pluginberkas', 'plugindev', 'hapusplugindev', 'restoreplugin', 'reloadfitur', 'hapusfitur', 'matikanfitur', 'nyalakanfitur', 'fiturmati', 'carifitur', 'kategorigraf', 'aliascek', '>', '$', 'jalankanperintah', 'bacafile', 'listfolder', 'restart', 'restartsafe', 'matikanbot'])
+const DEV_CMDS = new Set(['devmenu', '>_', 'addplugin', 'getcode', 'cekplugin', 'plugin', 'pluginrinci', 'pluginberkas', 'plugindev', 'hapusplugindev', 'restoreplugin', 'reloadfitur', 'hapusfitur', 'matikanfitur', 'nyalakanfitur', 'fiturmati', 'carifitur', 'kategorigraf', 'aliascek', '>', '$', 'jalankanperintah', 'bacafile', 'listfolder', 'restart', 'restartsafe', 'matikanbot'])
 export function sectionsOwner () {
   return rakit([
     { t: '📢 BROADCAST', cmds: ['bc', 'bcteks', 'bcgrup', 'bcprivat', 'bcgambar', 'bcdokumen', 'bctombol', 'bctunda', 'bcpremium', 'bcaktif', 'upswgc2'] },
     { t: '💎 PREMIUM & USER', cmds: ['premlist', 'premdetail', 'userinfo', 'userdetail', 'setcashuser', 'addmoney', 'setmoney', 'setkoin', 'addlevel', 'setlevel', 'addxp', 'setlevelrpg', 'ban', 'bantemp', 'banlist', 'resetuser', 'resetsemualimit', 'resetsemuauser', 'resetlimit', 'resetdatarpg'] },
     { t: '👥 GRUP & SEWA', cmds: ['sewabot', 'grupdetail'] },
-    { t: '📣 CHANNEL', cmds: ['reactwa'] },
     { t: '⚙️ PENGATURAN', cmds: ['settinglist', 'setnamabot', 'setfooter', 'settemamenu', 'setmodemenu', 'setmenuimg', 'setprefix', 'setlimitdefault', 'setcooldown', 'setmodelai', 'setapikey', 'setaikey', 'typingon', 'typingoff', 'readon', 'readoff', 'anticallon', 'anticalloff', 'autobioon', 'autobiooff', 'public', 'cmdmode', 'kuncifitur', 'pesanpembuka', 'set', 'setmenu', 'setmenu1', 'setmenu2', 'setmenu3', 'setmenu4', 'buatmenu', 'simpanmenu', 'hapusmenu', 'setppbot', 'setwebgame'] },
     { t: '🗄️ DATABASE', cmds: ['dbsize', 'dbstat', 'ekspordb', 'impordb', 'backupdb', 'listbackup', 'restorebackup', 'hapusbackup', 'logbot', 'bersihkantmp2', 'cleartmp', 'kirimfile'] },
     { t: '📊 PANTAU', cmds: ['statistikpenuh', 'totalchat', 'lbreset', 'aistatus', 'kesehatanbot', 'monitorcpu', 'sesiinfo', 'hapussesi', 'cekapi', 'cekdependensi', 'pluginhealth'] }
@@ -201,8 +199,8 @@ export function sectionsOwner () {
 /* ===================== 🧑‍💻 MENUDEV ===================== */
 export function sectionsDev () {
   return rakit([
-    { t: '🧩 PLUGIN & KODE', cmds: ['devmenu', '>_', 'get2', 'addplugin', 'getcode', 'cekplugin', 'plugin', 'pluginrinci', 'pluginberkas', 'plugindev', 'hapusplugindev', 'restoreplugin', 'reloadfitur', 'hapusfitur', 'matikanfitur', 'nyalakanfitur', 'fiturmati', 'carifitur', 'kategorigraf', 'aliascek'] },
-    { t: '💻 RUNNER & MESIN', cmds: ['>', '$', 'bash', 'jalankanperintah', 'bacafile', 'listfolder', 'restart', 'restartsafe', 'matikanbot'] }
+    { t: '🧩 PLUGIN', cmds: ['devmenu', '>_', 'addplugin', 'getcode', 'cekplugin', 'plugin', 'pluginrinci', 'pluginberkas', 'plugindev', 'hapusplugindev', 'restoreplugin', 'reloadfitur', 'hapusfitur', 'matikanfitur', 'nyalakanfitur', 'fiturmati', 'carifitur', 'kategorigraf', 'aliascek'] },
+    { t: '💻 KODE & MESIN', cmds: ['>', '$', 'jalankanperintah', 'bacafile', 'listfolder', 'restart', 'restartsafe', 'matikanbot'] }
   ])
 }
 

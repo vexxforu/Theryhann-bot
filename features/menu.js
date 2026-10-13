@@ -12,7 +12,8 @@ import { sendHtmlApp } from '../lib/htmlapp.js'
 import { sendPagedList } from '../lib/menupaging.js'
 import { menuImageContextInfo } from '../lib/menuimg.js'
 
-const SALURAN_WHATSAPP_URL = 'https://whatsapp.com/channel/0029VbCivTYEFeXehr6di601'
+// Gunakan link channel dari config.js supaya konsisten
+const SALURAN_WHATSAPP_URL = config.links.channel
 
 
 export default {
@@ -89,7 +90,7 @@ export default {
       '╰────────────────',
       '',
       '*PILIH FITUR DI BAWAH INI:* 👇',
-      `📱 Sosmed Carousel: \`${P2}sosmed\` · Pinterest Carousel: \`${P2}pin\` · Kartu geser: \`${P2}pin2\``
+      `📱 Sosmed: \`${P2}sosmed\` · Pinterest Carousel: \`${P2}pin2\``
     ].join('\n')
 
     /* v7.32.0 — .menu = 11 SUBMENU (tiap submenu ber-sections sesuai kegunaan) */
@@ -104,9 +105,7 @@ export default {
     ].filter(Boolean)
     const contextInfoMenu = await menuImageContextInfo({
       title: `🏠 Menu ${b.name || 'THERYHANN!'}`,
-      body: `${totalCmd} fitur · pilih submenu untuk membuka daftar`,
-      /* Thumbnail tetap memakai PP/gambar menu lama dari menuImage; target klik adalah link saluran pengguna. */
-      sourceUrl: SALURAN_WHATSAPP_URL
+      body: `${totalCmd} fitur · pilih submenu untuk membuka daftar`
     }).catch(() => undefined)
 
     /* v7.30.0 — MENU KUSTOM (menu4, menu5, … dari .buatmenu) */
@@ -229,35 +228,46 @@ export default {
       if (menuStyle === 'location') {
         const locationButtons = semuaBaris.slice(0, 10).map(row => ({ text: truncate(row.title, 20), id: row.id }))
         try {
+          // Kirim location pin dengan teks deskripsi
           await m.sock.sendMessage(m.jid, {
             location: {
               degreesLatitude: 3.5952,
               degreesLongitude: 98.6722,
-              name: 'Pin menu dekoratif · Pusat Medan',
-              address: 'Untuk tampilan menu saja — bukan lokasi server atau bot.'
-            }
+              name: '📍 Pin Menu Dekoratif · Pusat Medan',
+              address: `${config.bot.name} · ${totalCmd} fitur · v${b.version || ''}`
+            },
+            contextInfo: contextInfoMenu
           }, { quoted: m.raw })
-          /* Lokasi WhatsApp tidak mendukung caption pada payload yang sama.
-             Kirim teks eksplisit setelah pin supaya keterangannya terlihat tepat di bawah peta. */
-          const ringkasKategori = sek.map(grup => `${grup.title.replace(/^.*?\s/, '')}: ${grup.rows.slice(0, 4).map(row => row.title.replace(/^.*?\s/, '')).join(', ')}`).join('\n')
-          await m.reply(
-            `📍 *MENU LOKASI — PUSAT MEDAN*\n` +
-            `Pin di atas hanya dekoratif, bukan lokasi server atau bot.\n\n` +
-            `📂 *Kategori menu:*\n${ringkasKategori}\n\n` +
-            `Pilih daftar kategori pada pesan berikutnya.`
-          ).catch(() => {})
+          
+          // Kirim teks menu di bawah pin lokasi
+          const teksMenu = [
+            hiu,
+            '',
+            '*📍 MENU LOKASI*',
+            'Pin di atas dekoratif di pusat Medan, bukan lokasi server/bot.',
+            '',
+            '*Pilih kategori menu di bawah ini:*'
+          ].join('\n')
+          
           return await m.sendList({
             title: '📍 MENU LOKASI · PILIH KATEGORI',
-            text: 'Pin dekoratif pusat Medan (bukan lokasi server/bot). Pilih kategori menu di bawah.',
+            text: teksMenu,
             footer,
             buttonText: '📂 Buka kategori',
             sections: sek,
             contextInfo: contextInfoMenu
           })
         } catch {
+          const teksMenu = [
+            hiu,
+            '',
+            '*📍 MENU LOKASI*',
+            'Pin dekoratif pusat Medan (bukan lokasi server/bot). Pilih kategori:'
+          ].join('\n')
+          
           return await m.sendButtons({
             title: '📍 MENU LOKASI · PILIH KATEGORI',
-            text: 'Pin dekoratif pusat Medan (bukan lokasi server/bot). Pilih kategori:',
+            text: teksMenu,
             footer,
             buttons: locationButtons.length ? locationButtons : mainButtons
           })

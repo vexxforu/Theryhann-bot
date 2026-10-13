@@ -59,7 +59,7 @@ async function lookup (username) {
     signal: AbortSignal.timeout(20_000)
   })
   if (!response.ok) throw new Error(`Sumber membalas HTTP ${response.status}.`)
-  const final = new URL(response.url || pageUrl)
+  const final = new URL(response.url)
   if (final.protocol !== 'https:' || (final.hostname !== 'insta-stories-viewer.com' && !final.hostname.endsWith('.insta-stories-viewer.com'))) {
     throw new Error('Sumber mengarahkan permintaan ke host lain.')
   }

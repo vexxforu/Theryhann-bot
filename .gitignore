@@ -2,7 +2,6 @@ node_modules/
 session/
 tmp/
 database/*.json
-/data/devfiles/
 *.log
 .DS_Store
 npm-debug.log*

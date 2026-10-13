@@ -31,8 +31,6 @@ import { setSetting } from '../lib/database.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const FEATURES = path.join(ROOT, 'features')
-const DATA_DEV = path.join(ROOT, 'data', 'devfiles')
-const DATA_DEV_WAS_PRESENT = fs.existsSync(DATA_DEV)
 const { ok, ringkas } = buatReporter('[devmenu]')
 
 const BOT = '6285177700002@s.whatsapp.net'
@@ -107,15 +105,15 @@ try {
 
   /* ================= A. REGISTRASI ================= */
   console.log('\n[A] Registrasi & izin')
-  for (const cmd of ['>_', 'getcode', 'get2', 'devmenu', 'plugindev', 'hapusplugindev', 'restoreplugin', 'cekplugin']) {
+  for (const cmd of ['>_', 'getcode', 'devmenu', 'plugindev', 'hapusplugindev', 'restoreplugin', 'cekplugin']) {
     const p = findPlugin(cmd)
     ok(`.${cmd} terdaftar`, !!p)
     if (!p) continue
     ok(`.${cmd} khusus owner`, p.plugin.owner === true, `owner=${p.plugin.owner}`)
     ok(`.${cmd} kategori Owner Menu & limit 0`, p.plugin.category === 'Owner Menu' && p.plugin.limit === 0, p.plugin.category)
-    ok(`.${cmd} alias utama tersedia`, cmd === 'get2' ? p.plugin.command?.includes('get2') : (p.plugin.command?.length || 0) >= 5, `${p.plugin.command?.length}`)
+    ok(`.${cmd} punya ≥ 5 alias`, (p.plugin.command?.length || 0) >= 5, `${p.plugin.command?.length}`)
   }
-  ok('DAFTAR_DEV berisi 8 alat termasuk .get2', D.DAFTAR_DEV.length === 8 && D.DAFTAR_DEV.some(x => x.cmd === 'get2'))
+  ok('DAFTAR_DEV berisi 7 alat', D.DAFTAR_DEV.length === 7)
 
   /* ================= B. UNIT: nama & sintaks ================= */
   console.log('\n[B] namaFileAman / cekSintaks / namaDariPesan')
@@ -236,21 +234,6 @@ try {
   t = await kirim(ORANG, `${P}halodevv2`)
   ok('perintah versi 2 jalan', /VERSI DUA/.test(t), t.slice(0, 50))
 
-  /* ================= I2. FILE DATA .>_ ================= */
-  console.log('\n[I2] .>_ data JSON aman')
-  const DATA_NAME = 'devujidata.json'
-  const DATA_BAD = 'devujidata-invalid.json'
-  const DATA_TEXT = '{\n  "pesan": "halo data",\n  "aktif": true\n}'
-  t = await kirim(OWNER, `${P}>_ ${DATA_NAME} <<EOF\n${DATA_TEXT}\nEOF`)
-  ok('.>_ JSON disimpan di data/devfiles', fs.existsSync(path.join(DATA_DEV, DATA_NAME)) && /data\/devfiles/.test(t), t.slice(0, 100))
-  ok('.>_ JSON valid dipertahankan tanpa plugin/hot-reload', fs.readFileSync(path.join(DATA_DEV, DATA_NAME), 'utf8') === DATA_TEXT && !fs.existsSync(path.join(FEATURES, DATA_NAME)) && !findPlugin('devujidata'))
-  t = await kirim(OWNER, `${P}>_ ${DATA_NAME}`)
-  ok('.>_ tanpa isi dapat membaca file data aman yang sudah ada', /DATA FILE/.test(t) && /JSON|Data terbaca/.test(t) && t.includes('halo data'), t.slice(0, 140))
-  t = await kirim(OWNER, `${P}>_ ${DATA_BAD} <<EOF\n{ bukan json }\nEOF`)
-  ok('.>_ JSON invalid ditolak', /JSON tidak valid/i.test(t) && !fs.existsSync(path.join(DATA_DEV, DATA_BAD)), t.slice(0, 100))
-  t = await kirim(ORANG, `${P}>_ ${DATA_NAME} <<EOF\n{}\nEOF`)
-  ok('.>_ non-owner tidak dapat menulis data', /khusus Owner|🔒/i.test(t) && fs.readFileSync(path.join(DATA_DEV, DATA_NAME), 'utf8') === DATA_TEXT)
-
   /* ================= J. GETCODE ================= */
   console.log('\n[J] .getcode')
   t = await kirim(OWNER, `${P}getcode`)
@@ -343,12 +326,6 @@ try {
       const dir = path.join(ROOT, 'tmp', 'devbackup')
       if (fs.existsSync(dir)) for (const f of fs.readdirSync(dir)) if (f.endsWith('__' + n)) fs.unlinkSync(path.join(dir, f))
     } catch {}
-  }
-  for (const n of ['devujidata.json', 'devujidata-invalid.json']) {
-    try { const f = path.join(DATA_DEV, n); if (fs.existsSync(f)) fs.unlinkSync(f) } catch {}
-  }
-  if (!DATA_DEV_WAS_PRESENT) {
-    try { if (fs.existsSync(DATA_DEV) && fs.readdirSync(DATA_DEV).length === 0) fs.rmdirSync(DATA_DEV) } catch {}
   }
   for (const d of DB) {
     try {

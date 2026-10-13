@@ -2,7 +2,7 @@
  * 🧰 DEV MENU v7.7 — bikin & kelola plugin langsung dari chat
  * ------------------------------------------------------------------
  *  .>_            buat/timpa plugin dari chat (balas dokumen .js ATAU teks kode),
- *                 langsung aktif tanpa restart (hot-reload); JSON/data masuk folder aman
+ *                 langsung aktif tanpa restart (hot-reload)
  *  .getcode       kirim kode sumber plugin/file apa pun ke chat
  *  .devmenu       pusat perintah developer
  *  .plugindev     daftar plugin yang dibuat lewat .>_
@@ -33,16 +33,6 @@ const P = config.display.prefix
 const NAMA_DB = 'devplugin'
 export const DIR_CADANGAN = path.join(ROOT, 'tmp', 'devbackup')
 const MAKS_KODE = 400 * 1024          // 400 KB
-const EKSTENSI_DATA = new Set(['.json', '.txt', '.md', '.csv', '.yml', '.yaml', '.html', '.css', '.sh', '.py', '.log'])
-
-function pesanDenganQ (m, q) {
-  return new Proxy(m, {
-    get (target, key, receiver) {
-      if (key === 'q') return q
-      return Reflect.get(target, key, receiver)
-    }
-  })
-}
 const MAKS_CADANGAN = 5               // cadangan terakhir per file
 
 /** nama yang tidak boleh dipakai sama sekali (membingungkan / bentrok dengan modul inti) */
@@ -118,6 +108,7 @@ export function daftarCadangan (nama) {
 /**
  * Ambil kode dari pesan: dokumen/media yang dibalas, media di pesan ini,
  * teks yang dibalas, atau teks setelah nama file.
+ * v7.37.1: Mendukung file .json, .txt, .md, dan format data lainnya
  */
 export async function ambilKode (m, kodeInline = '') {
   /* 1) dokumen / media */
@@ -125,18 +116,99 @@ export async function ambilKode (m, kodeInline = '') {
     try {
       const h = await m.download()
       const buf = Buffer.isBuffer(h) ? h : (h?.buffer || (h?.path ? fs.readFileSync(h.path) : null))
-      if (buf) return { kode: buf.toString('utf8'), sumber: `dokumen (${formatSize(buf.length)})` }
+      if (buf) {
+        const namaFile = m.quoted?.fileName || m.fileName || ''
+        const ext = namaFile.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] || ''
+        
+        // Deteksi tipe file
+        const tipeFile = deteksiTipeFile(ext, namaFile)
+        
+        return { 
+          kode: buf.toString('utf8'), 
+          sumber: `dokumen ${tipeFile.label} (${formatSize(buf.length)})`,
+          tipeFile,
+          namaFileAsli: namaFile
+        }
+      }
     } catch (e) {
       return { kode: '', sumber: '', galat: 'Gagal mengunduh dokumen: ' + (e?.message || e) }
     }
   }
   /* 2) kode ditulis langsung setelah nama file */
-  if (kodeInline && kodeInline.length > 20) return { kode: kodeInline, sumber: 'teks perintah' }
+  if (kodeInline && kodeInline.length > 20) {
+    // Coba deteksi apakah ini JSON
+    const tipeFile = deteksiTipeFileDariKonten(kodeInline)
+    return { kode: kodeInline, sumber: 'teks perintah', tipeFile }
+  }
   /* 3) balas pesan teks berisi kode */
   const qt = String(m.quoted?.text || '').trim()
-  if (qt.length > 20) return { kode: qt, sumber: 'pesan teks yang dibalas' }
-  if (kodeInline) return { kode: kodeInline, sumber: 'teks perintah' }
+  if (qt.length > 20) {
+    const tipeFile = deteksiTipeFileDariKonten(qt)
+    return { kode: qt, sumber: 'pesan teks yang dibalas', tipeFile }
+  }
+  if (kodeInline) {
+    const tipeFile = deteksiTipeFileDariKonten(kodeInline)
+    return { kode: kodeInline, sumber: 'teks perintah', tipeFile }
+  }
   return { kode: '', sumber: '' }
+}
+
+/**
+ * Deteksi tipe file dari ekstensi
+ */
+function deteksiTipeFile(ext, namaFile = '') {
+  const extLower = String(ext || '').toLowerCase()
+  const namaLower = String(namaFile || '').toLowerCase()
+  
+  // File executable (plugin)
+  if (['js', 'mjs', 'cjs'].includes(extLower)) {
+    return { ekstensi: extLower, tipe: 'plugin', label: 'JavaScript', executable: true }
+  }
+  
+  // File data
+  if (extLower === 'json') {
+    return { ekstensi: extLower, tipe: 'data', label: 'JSON', executable: false }
+  }
+  
+  // File teks/dokumen
+  if (['txt', 'md', 'log', 'csv', 'tsv'].includes(extLower)) {
+    return { ekstensi: extLower, tipe: 'teks', label: extLower.toUpperCase(), executable: false }
+  }
+  
+  // File konfigurasi
+  if (['yml', 'yaml', 'toml', 'ini', 'conf', 'config'].includes(extLower)) {
+    return { ekstensi: extLower, tipe: 'config', label: extLower.toUpperCase(), executable: false }
+  }
+  
+  // Default: anggap sebagai plugin kalau tidak ada ekstensi
+  if (!extLower && namaLower.endsWith('.js')) {
+    return { ekstensi: 'js', tipe: 'plugin', label: 'JavaScript', executable: true }
+  }
+  
+  return { ekstensi: extLower || 'txt', tipe: 'lain', label: extLower.toUpperCase() || 'TEXT', executable: false }
+}
+
+/**
+ * Deteksi tipe file dari konten (fallback kalau tidak ada ekstensi)
+ */
+function deteksiTipeFileDariKonten(kode) {
+  const teks = String(kode || '').trim()
+  
+  // Coba parse sebagai JSON
+  if (teks.startsWith('{') || teks.startsWith('[')) {
+    try {
+      JSON.parse(teks)
+      return { ekstensi: 'json', tipe: 'data', label: 'JSON', executable: false }
+    } catch {}
+  }
+  
+  // Cek apakah mengandung export default atau module.exports (plugin)
+  if (/export\s+default\s|module\.exports\s*=|export\s+(const|function|class)\s/.test(teks)) {
+    return { ekstensi: 'js', tipe: 'plugin', label: 'JavaScript', executable: true }
+  }
+  
+  // Default: teks biasa
+  return { ekstensi: 'txt', tipe: 'teks', label: 'TEXT', executable: false }
 }
 
 /**
@@ -215,64 +287,18 @@ export async function pasangPaket (nama, ms = 180000) {
 export const buatPluginChat = {
   command: ['>_', 'buatplugin', 'pluginbaru', 'newplugin', 'createplugin', 'tulisplugin', 'devbuat'],
   category: 'Owner Menu',
-  description: '🧰 Buat/hot-reload plugin .js; JSON/teks disimpan sebagai data aman, tidak dijalankan',
+  description: '🧰 Buat plugin baru dari chat (balas dokumen .js atau kirim kodenya) — langsung aktif tanpa restart',
   owner: true,
   limit: 0,
   run: async m => {
     const { nama: namaInput, paksa, sisa } = namaDariPesan(m)
-    const rawArg = String(m?.q || m?.arg || (m?.args || []).join(' ') || '')
-    const extInput = path.extname(path.basename(String(namaInput || ''))).toLowerCase()
-
-    /* .>_ mempertahankan pembuatan/hot-reload .js. File data diarahkan ke
-       .cateof agar validasi JSON, batas ukuran, backup, dan folder data aman
-       dipakai sama; tidak ada jalur reload/eksekusi untuk non-JS. */
-    if (EKSTENSI_DATA.has(extInput)) {
-      const kepala = rawArg.split('\n')[0] || ''
-      const adaHeredoc = /<<[-<]*\s*['\"]?[A-Za-z_][A-Za-z0-9_]*['\"]?\s*$/.test(kepala)
-      let qData = rawArg.trim()
-      if (!adaHeredoc && sisa.trim()) {
-        qData = `${namaInput}${paksa ? ' --paksa' : ''} <<EOF\n${sisa}\nEOF`
-      } else if (!qData) {
-        qData = `${namaInput}${paksa ? ' --paksa' : ''}`
-      }
-      const { catEof, validasiDataFile } = await import('./cateof.js')
-
-      /* `.>_ file.json` tanpa balasan/konten juga dapat membaca file data
-         yang pernah dibuat di lokasi terisolasi data/devfiles/. */
-      const adaSumberBalasan = !!(m?.quoted?.isMedia || m?.isMedia || String(m?.quoted?.text || '').trim())
-      const namaBersih = !/[\\/]|\.\./.test(String(namaInput || '')) ? path.basename(String(namaInput || '').toLowerCase()) : ''
-      const fileBaca = namaBersih && namaBersih === String(namaInput || '').toLowerCase() && EKSTENSI_DATA.has(path.extname(namaBersih))
-        ? path.join(ROOT, 'data', 'devfiles', namaBersih)
-        : ''
-      if (!adaHeredoc && !sisa.trim() && !adaSumberBalasan && fileBaca && fs.existsSync(fileBaca)) {
-        const real = fs.realpathSync(fileBaca)
-        const dataRoot = path.join(ROOT, 'data', 'devfiles') + path.sep
-        if (!real.startsWith(dataRoot)) return m.reply('⚠️ File data berada di luar folder aman.')
-        const stat = fs.statSync(real)
-        if (!stat.isFile() || stat.size > MAKS_KODE) return m.reply(`❌ File data terlalu besar atau bukan file biasa (maks ${formatSize(MAKS_KODE)}).`)
-        const isi = fs.readFileSync(real, 'utf8')
-        const valid = validasiDataFile(namaBersih, isi)
-        const status = valid.ok ? '✅ Data terbaca' : `⚠️ Validasi: ${valid.pesan}`
-        const info = `📄 *DATA FILE — data/devfiles/${namaBersih}*\n${status} · ${formatSize(stat.size)} · ${isi.split('\n').length} baris`
-        if (isi.length <= 3000) {
-          const lang = namaBersih.endsWith('.json') ? 'json' : 'text'
-          return m.reply(`${info}\n\n\`\`\`${lang}\n${isi}\n\`\`\``)
-        }
-        await m.reply(`${info}\nFile dilampirkan di bawah.`)
-        return m.sendDoc(Buffer.from(isi, 'utf8'), namaBersih, namaBersih.endsWith('.json') ? 'application/json' : 'text/plain')
-      }
-      return catEof.run(pesanDenganQ(m, qData))
-    }
-
     const sisaKode = sisa.replace(/^\s*--tanpa-ai\b\s*|\s--tanpa-ai\s*$/g, '')
     const nama = namaFileAman(namaInput)
 
     if (!nama) {
       return m.reply(
         judul(m, 'BUAT PLUGIN') +
-        `\nBikin file plugin di *features/* lalu langsung aktif tanpa restart.\n` +
-        `Untuk data .json/.txt/.md/.csv: ${P}>_ nama.json <<EOF … EOF → data/devfiles/ (tidak dieksekusi).\n` +
-        `Tanpa isi, ${P}>_ nama.json membaca file data aman yang sudah ada.\n\n` +
+        `\nBikin file di *features/* lalu langsung aktif tanpa restart.\n\n` +
         `*Cara 1 — balas dokumen .js*\nKirim dokumen plugin.js ke chat bot, lalu balas dengan:\n${P}>_ namaplugin\n(nama boleh dikosongkan: ikut nama dokumen)\n\n` +
         `*Cara 2 — tulis kodenya*\n${P}>_ namaplugin export default { command: ['halo'], category: 'Fun', description: 'sapa', run: async m => m.reply('halo!') }\n\n` +
         `*Cara 3 — balas pesan teks berisi kode*\n${P}>_ namaplugin\n\n` +
@@ -563,8 +589,7 @@ export const devMenu = {
       `*Bikin plugin*\n` +
       `▸ ${P}>_ nama  ← balas dokumen .js / tulis kodenya\n` +
       `▸ ${P}cekplugin nama — cek sintaks & export\n` +
-      `▸ ${P}getcode nama — ambil file lokal\n` +
-      `▸ ${P}get2 <URL> — ambil kode URL/file ke blok salin AIRich\n` +
+      `▸ ${P}getcode nama — ambil kode sumber\n` +
       `▸ ${P}restoreplugin nama — kembalikan cadangan\n` +
       `▸ ${P}hapusplugindev nama — hapus permanen\n\n` +
       `*Rawat fitur*\n` +
@@ -574,7 +599,7 @@ export const devMenu = {
       `▸ ${P}pluginberkas · ${P}pluginrinci <file> · ${P}carifitur <kata>\n\n` +
       `*Sistem*\n` +
       `▸ ${P}bacafile <path> · ${P}listfolder <path> · ${P}kirimfile <path>\n` +
-      `▸ ${P}bash · $ <command> — runner owner terbatas (allowlist; bukan shell bebas) · ${P}logbot 10 · ${P}dbstat\n` +
+      `▸ ${P}jalankanperintah <shell> · ${P}logbot 10 · ${P}dbstat\n` +
       `▸ ${P}backupdb · ${P}restartsafe`
 
     try {
@@ -585,8 +610,7 @@ export const devMenu = {
           { text: '🧩 Plugin buatan chat', id: `${P}plugindev` },
           { text: '📂 Daftar file fitur', id: `${P}pluginberkas` },
           { text: '🔎 Cari fitur', id: `${P}carifitur` },
-          { text: '📄 Ambil kode lokal', id: `${P}getcode` },
-          { text: '🌐 Ambil kode URL', id: `${P}get2` },
+          { text: '📄 Ambil kode', id: `${P}getcode` },
           { text: '👑 Menu Owner', id: `${P}menuowner` }
         ]
       })
@@ -754,8 +778,7 @@ export const cekPlugin = {
 
 export const DAFTAR_DEV = [
   { cmd: '>_', icon: '🧩', nama: 'Buat Plugin', ket: 'bikin plugin dari dokumen/teks chat, langsung aktif' },
-  { cmd: 'getcode', icon: '📄', nama: 'Get Code', ket: 'kirim kode sumber file lokal' },
-  { cmd: 'get2', icon: '🌐', nama: 'Get Code URL', ket: 'ambil kode teks dari URL/lampiran, kirim blok AIRich' },
+  { cmd: 'getcode', icon: '📄', nama: 'Get Code', ket: 'kirim kode sumber plugin/file' },
   { cmd: 'devmenu', icon: '🧰', nama: 'Dev Menu', ket: 'pusat perintah developer' },
   { cmd: 'plugindev', icon: '📋', nama: 'Plugin Dev', ket: 'daftar plugin buatan chat' },
   { cmd: 'cekplugin', icon: '🔍', nama: 'Cek Plugin', ket: 'periksa sintaks & export' },

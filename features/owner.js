@@ -5,6 +5,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import util from 'node:util'
+import { exec as execCB } from 'node:child_process'
 import { config } from '../config.js'
 import { resolveImageValue, menuImageContextInfo, bannerBuffer, clearBannerCache, listThemes } from '../lib/menuimg.js'
 import { FEATURES_DIR, loadPlugins, reloadPlugin, unloadPlugin, listPlugins } from '../lib/plugins.js'
@@ -18,7 +19,8 @@ import {
   saveNow
 } from '../lib/database.js'
 import { truncate, formatSize, chunkText } from '../lib/functions.js'
-import { jalanPerintah, formatHasil, folderChat, pindahFolder } from './bash.js'
+
+const exec = util.promisify(execCB)
 
 export default {
   command: ['owner', 'creator'],
@@ -87,16 +89,17 @@ export const evalCmd = {
 export const execCmd = {
   command: ['$', 'exec', 'run'],
   category: 'Owner Menu',
-  description: '💻 Jalankan satu perintah dari allowlist runner aman; bukan shell bebas',
+  description: 'Eksekusi perintah shell/termux (owner only)',
   owner: true,
   limit: 0,
-  run: async m => {
-    const q = String(m.q || '').trim()
-    if (!q) return m.reply(`Contoh: \`$ ls -la\` atau \`${config.display.prefix}exec git status\`. Hanya command read-only yang diizinkan.`)
-    const cd = q.match(/^cd(?:\s+([\s\S]*))?$/i)
-    if (cd) return m.reply(await pindahFolder(m.jid, cd[1] || '~'))
-    const h = await jalanPerintah(q, folderChat(m.jid), 15)
-    return m.reply(formatHasil(q, h))
+  run: async (m) => {
+    if (!m.q) return m.reply('Contoh: `$ ls -la`')
+    try {
+      const { stdout, stderr } = await exec(m.q, { cwd: path.resolve(FEATURES_DIR, '..') })
+      return m.reply('```' + truncate((stdout || '') + (stderr || '') || '(tidak ada output)', 3800) + '```')
+    } catch (e) {
+      return m.reply('```❌ ' + truncate(e.message + '\n' + (e.stdout || ''), 3500) + '```')
+    }
   }
 }
 

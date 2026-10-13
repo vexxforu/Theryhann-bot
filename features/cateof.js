@@ -33,7 +33,6 @@ import { mintaAIBesar } from './buatfitur.js'
 const P = config.display.prefix
 const DIR_FITUR = path.dirname(fileURLToPath(import.meta.url))
 const DIR_ROOT = path.dirname(DIR_FITUR)
-const DIR_DATA_DEV = path.join(DIR_ROOT, 'data', 'devfiles')
 const MAKS_ISI = 400 * 1024
 const MAKS_BARIS = 4000
 
@@ -44,8 +43,7 @@ const FILE_DILINDUNGI = new Set([
 ])
 
 /** ekstensi yang dikenali (di luar .js tetap boleh, mis. .json .sh .md .txt) */
-const EXT_BOLEH = /\.(js|json|txt|md|csv|sh|py|html|css|yml|yaml|log)$/i
-const EXT_DATA = /\.(json|txt|md|csv|sh|py|html|css|yml|yaml|log)$/i
+const EXT_BOLEH = /\.(js|mjs|cjs|json|txt|md|sh|py|html|css|yml|yaml|env|log)$/i
 
 /**
  * Urai argumen gaya heredoc.
@@ -130,33 +128,11 @@ export function namaBerkasAman (input = '') {
   return (aman.length > 40 ? aman.slice(0, 40) : aman) + ext
 }
 
-/** .js saja yang dapat dimuat sebagai plugin; semua format lain masuk folder data terisolasi. */
+/** tentukan folder tujuan: .js → features/, selain itu → root (tmp/ untuk sementara) */
 function lokasiTujuan (namaFile) {
-  if (/\.js$/i.test(namaFile)) return { dir: DIR_FITUR, label: 'features/' }
-  return { dir: DIR_DATA_DEV, label: 'data/devfiles/' }
-}
-
-/** Validasi data sebelum disimpan; tidak pernah mengimpor atau mengeksekusi isinya. */
-export function validasiDataFile (namaFile, isi) {
-  const teks = String(isi ?? '')
-  if (!EXT_DATA.test(String(namaFile))) return { ok: false, pesan: 'Ekstensi data tidak diizinkan.' }
-  if (teks.includes('\0')) return { ok: false, pesan: 'Konten berisi byte NUL/biner; kirim file teks UTF-8.' }
-  if (/\.json$/i.test(namaFile)) {
-    let data
-    try { data = JSON.parse(teks) } catch (e) { return { ok: false, pesan: `JSON tidak valid: ${String(e?.message || e).slice(0, 180)}` } }
-    const seen = new Set()
-    const periksa = (value, depth = 0) => {
-      if (depth > 64) throw new Error('kedalaman JSON melebihi 64 tingkat')
-      if (!value || typeof value !== 'object' || seen.has(value)) return
-      seen.add(value)
-      for (const [key, child] of Object.entries(value)) {
-        if (['__proto__', 'prototype', 'constructor'].includes(key)) throw new Error(`kunci berbahaya: ${key}`)
-        periksa(child, depth + 1)
-      }
-    }
-    try { periksa(data) } catch (e) { return { ok: false, pesan: `JSON ditolak: ${String(e?.message || e)}` } }
-  }
-  return { ok: true, pesan: '' }
+  if (/\.js$|\.mjs$|\.cjs$/i.test(namaFile)) return { dir: DIR_FITUR, label: 'features/' }
+  if (/\.(json|txt|md|log)$/i.test(namaFile)) return { dir: DIR_ROOT, label: '' }
+  return { dir: path.join(DIR_ROOT, 'tmp'), label: 'tmp/' }
 }
 
 /** tulis dengan cadangan + verifikasi */
@@ -236,7 +212,7 @@ export const catEof = {
         `*Penanda bebas:* \`<<EOF\` \`<<-EOF\` \`<<<EOF\` \`<<'EOF'\` \`<<BATAS … BATAS\`\\n\\n` +
         `*Aturan:*\\n` +
         `• \`.js\` disimpan ke \`features/\` lalu otomatis dimuat sebagai plugin\\n` +
-        `• data non-.js disimpan terpisah di \`data/devfiles/\` dan tidak pernah dijalankan\\n` +
+        `• selain \`.js\` disimpan ke folder bot (\`tmp/\` untuk sementara)\\n` +
         `• file \`.js\` dicek sintaksnya dulu — gagal = tidak ditulis\\n` +
         `• \`${P}cateof <file> --paksa\` untuk menimpa file bawaan yang dilindungi\\n\\n` +
         `⚠️ Jangan pakai \`m.args\` untuk kode multi-baris — perintah ini membaca \`m.q\` supaya baris baru tetap utuh.`
@@ -259,7 +235,7 @@ export const catEof = {
     const namaFile = namaBerkasAman(u.nama)
     if (!namaFile) return m.reply(`❌ Nama file tidak sah: \`${truncate(u.nama, 60)}\`\\nContoh: \`${P}cateof halo.js <<EOF\``)
     if (!EXT_BOLEH.test(namaFile)) {
-      return m.reply(`❌ Ekstensi \`${namaFile}\` tidak dikenali.\\nBoleh: .js (plugin) atau .json .txt .md .csv .sh .py .html .css .yml .yaml .log (data, tidak dijalankan)`)
+      return m.reply(`❌ Ekstensi \`${namaFile}\` tidak dikenali.\\nBoleh: .js .mjs .cjs .json .txt .md .sh .py .html .css .yml .yaml .env .log`)
     }
     if (NAMA_TERLARANG.has(namaFile)) {
       return m.reply(`🚫 *${namaFile}* adalah file inti bot — tidak boleh ditulis lewat perintah ini.`)
@@ -291,20 +267,10 @@ export const catEof = {
     const jumlahBaris = isi.split('\n').length
     if (jumlahBaris > MAKS_BARIS) return m.reply(`❌ Terlalu banyak baris: ${jumlahBaris} (maks ${MAKS_BARIS}).`)
 
-    const isJS = /\.js$/i.test(namaFile)
-    if (!isJS) {
-      const cekData = validasiDataFile(namaFile, isi)
-      if (!cekData.ok) return m.reply(`❌ ${cekData.pesan}`)
-    }
-
     const { dir, label } = lokasiTujuan(namaFile)
     const target = path.join(dir, namaFile)
-    const dilindungi = isJS && FILE_DILINDUNGI.has(namaFile)
+    const dilindungi = label === 'features/' && FILE_DILINDUNGI.has(namaFile)
     const sudahAda = fs.existsSync(target)
-
-    if (!isJS && sudahAda && !u.flagPaksa) {
-      return m.reply(`🛡️ File data \`${label}${namaFile}\` sudah ada. Tambahkan \`--paksa\` untuk menimpa setelah memastikan isinya benar.`)
-    }
 
     if (dilindungi && !u.flagPaksa) {
       return m.reply(
@@ -315,6 +281,7 @@ export const catEof = {
     }
 
     /* ---- .js: cek sintaks SEBELUM ditulis ---- */
+    const isJS = /\.(js|mjs|cjs)$/i.test(namaFile)
     if (isJS) {
       const tmpCek = path.join(DIR_ROOT, 'tmp', `cek-${Date.now()}.mjs`)
       try {
@@ -475,7 +442,7 @@ export const autoCat = {
       return m.reply(`❌ Isi AI terlalu besar (${formatSize(Buffer.byteLength(hasil.isi))}) — dibuang.`)
     }
 
-    const isJS = /\.js$/i.test(namaFile)
+    const isJS = /\.(js|mjs|cjs)$/i.test(namaFile)
     if (isJS) {
       const tmpCek = path.join(DIR_ROOT, 'tmp', `cek-${Date.now()}.mjs`)
       try {
@@ -496,11 +463,6 @@ export const autoCat = {
           `\`\`\`${truncate(hasil.isi, 600)}\`\`\``
         )
       }
-    }
-
-    if (!isJS) {
-      const cekData = validasiDataFile(namaFile, hasil.isi)
-      if (!cekData.ok) return m.reply(`❌ Hasil AI ditolak: ${cekData.pesan}`)
     }
 
     const { dir, label } = lokasiTujuan(namaFile)
@@ -525,13 +487,12 @@ export const autoCat = {
       }).catch(() => m.reply(ringkas))
     }
 
-    const dilindungi = isJS && FILE_DILINDUNGI.has(namaFile)
+    const dilindungi = label === 'features/' && FILE_DILINDUNGI.has(namaFile)
     if (dilindungi && !flagPaksa) {
       return m.reply(`🛡️ *${namaFile}* dilindungi. Ulangi dengan \`--paksa\` kalau yakin.`)
     }
 
     const sudahAda = fs.existsSync(target)
-    if (!isJS && sudahAda && !flagPaksa) return m.reply(`🛡️ File data \`${label}${namaFile}\` sudah ada. Tambahkan \`--paksa\` untuk menimpa.`)
     const lama = sudahAda ? fs.readFileSync(target, 'utf8') : null
     try { tulisAman(target, hasil.isi) } catch (e) {
       return m.reply(`❌ Gagal menulis file: ${truncate(String(e?.message || e), 160)}`)

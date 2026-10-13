@@ -20,7 +20,7 @@ const CARD_DEFS = [
   {
     name: 'Pinterest', title: 'PINTEREST', theme: 'crimson', subtitle: 'PIN CAROUSEL',
     body: 'Cari gambar pin dalam Carousel yang bisa digeser, atau lihat video dan detail pin.\nPakai kata kunci atau link pin.',
-    buttons: [['📌 Cari Pin · Carousel', 'pin'], ['🎞️ Video Pin', 'pinvideo'], ['ℹ️ Info Pin', 'pininfo']]
+    buttons: [['📌 Cari Pin · Carousel', 'pin2'], ['🎞️ Video Pin', 'pinvideo'], ['ℹ️ Info Pin', 'pininfo']]
   },
   {
     name: 'YouTube', title: 'YOUTUBE', theme: 'sunset', subtitle: 'VIDEO AND AUDIO',
@@ -100,7 +100,7 @@ export default {
       const buttons = [
         { text: '🎵 TikTok', id: `${P}ttvideo` },
         { text: '📸 Instagram', id: `${P}igdl` },
-        { text: '📌 Pinterest', id: `${P}pin` },
+        { text: '📌 Pinterest', id: `${P}pin2` },
         { text: '▶️ YouTube', id: `${P}ytinfo` },
         { text: '👤 Facebook', id: `${P}fbstalk` },
         { text: '🧵 Threads', id: `${P}threadsstalk` },
@@ -114,7 +114,7 @@ export default {
           buttons
         })
       } catch {
-        return m.reply(`📱 Menu SOSMED\nTikTok: ${P}ttvideo · Instagram: ${P}igdl · Pinterest Carousel: ${P}pin · Kartu geser: ${P}pin2 · YouTube: ${P}ytinfo\nFacebook: ${P}fbstalk · Threads: ${P}threadsstalk`)
+        return m.reply(`📱 Menu SOSMED\nTikTok: ${P}ttvideo · Instagram: ${P}igdl · Pinterest: ${P}pin2 · YouTube: ${P}ytinfo\nFacebook: ${P}fbstalk · Threads: ${P}threadsstalk`)
       }
     }
   }

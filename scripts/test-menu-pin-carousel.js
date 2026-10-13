@@ -123,7 +123,7 @@ console.log('\n[A2] .cn tombol salin dan menu sosmed Carousel')
 {
   const cards = await buildSosmedCards({ renderBanner: async options => Buffer.from(options.title) })
   check('.sosmed membangun lima kartu bergambar untuk Carousel', cards.length === 5 && cards.every(card => Buffer.isBuffer(card.image) && card.buttons.length === 3))
-  check('kartu Pinterest Carousel memanggil .pin dan kartu video menyertakan command yang tersedia', cards[2]?.buttons[0]?.id === '.pin' && cards[3]?.buttons.some(button => button.id === '.ytvideo'))
+  check('kartu Pinterest memanggil .pin2 dan kartu video menyertakan command yang tersedia', cards[2]?.buttons[0]?.id === '.pin2' && cards[3]?.buttons.some(button => button.id === '.ytvideo'))
 }
 
 console.log('\n[B] Pratinjau gambar menu')

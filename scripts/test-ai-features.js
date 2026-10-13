@@ -71,7 +71,7 @@ const typoKick = findCommandSuggestions('kikc', listPlugins(), { isGroup: true }
 check('typo kick memberi saran command resmi', typoKick[0]?.command === 'kick')
 check('.setstc masuk kategori AI Menu dan dapat ditemukan', findPlugin('setstc')?.plugin?.category === 'AI Menu')
 check('.sosmed dimuat sebagai plugin Carousel Internet', findPlugin('sosmed')?.plugin?.category === 'Internet')
-check('.pin2 terdaftar sebagai handler Pinterest terpisah dari .pin', !!findPlugin('pin2')?.plugin && findPlugin('pin2')?.plugin !== findPlugin('pin')?.plugin)
+check('.pin2 menuju handler Pinterest Carousel yang sama dengan .pin', findPlugin('pin2')?.plugin === findPlugin('pin')?.plugin)
 check('.ewe/.entod/.dor/.tendang terdaftar sebagai alias kick', ['ewe', 'entod', 'dor', 'tendang'].every(a => findPlugin(a)?.plugin === findPlugin('kick')?.plugin) && kickAdd.command.includes('tendang'))
 
 console.log('\n[B1] Menu utama dan submenu quick-reply')
@@ -87,7 +87,7 @@ const fakeMainMenu = {
 }
 await menuPlugin.run(fakeMainMenu, { prefix: config.display.prefix })
 check('menu utama punya empat tombol sesuai permintaan', ownerMenuPayload?.buttons?.map(b => b.text).join('|') === '💝 Donasi|👤 Kontak Owner|📋 List Menu|🧪 Menu Dev')
-check('menu utama mencantumkan akses carousel .sosmed, .pin, dan .pin2 terpisah', ownerMenuPayload?.text?.includes('.sosmed') && ownerMenuPayload.text.includes('.pin') && ownerMenuPayload.text.includes('.pin2'))
+check('menu utama mencantumkan akses carousel .sosmed dan .pin2', ownerMenuPayload?.text?.includes('.sosmed') && ownerMenuPayload.text.includes('.pin2'))
 fakeMainMenu.isOwner = false
 await menuPlugin.run(fakeMainMenu, { prefix: config.display.prefix })
 check('keempat tombol utama tetap tampil pada akun biasa', ownerMenuPayload?.buttons?.length === 4 && ownerMenuPayload.buttons.at(-1)?.id === '.menudev')

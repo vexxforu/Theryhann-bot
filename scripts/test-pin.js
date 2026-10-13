@@ -92,7 +92,6 @@ ok('handler termuat tanpa error', !errHandler, errHandler?.message)
 ok('.pin terdaftar & jadi nama utama', findPlugin('pin')?.name === 'pin', String(findPlugin('pin')?.name))
 const warisan = ['pinterest', 'pinsearch', 'caripin', 'pinterestdl', 'carpin', 'pinter']
 ok('alias warisan + baru mengarah ke pin', warisan.every(a => aliases.get(a) === 'pin'), warisan.filter(a => aliases.get(a) !== 'pin').join(','))
-ok('.pin2 terdaftar sebagai plugin terpisah', !!findPlugin('pin2') && aliases.get('pin2') === 'pin2' && findPlugin('pin2')?.plugin !== findPlugin('pin')?.plugin, String(findPlugin('pin2')?.plugin?.fileName))
 ok('.pinsumber / .pinhd / .pinvideo / .pininfo terdaftar',
   !!findPlugin('pinsumber') && !!findPlugin('pinhd') && !!findPlugin('pinvideo') && !!findPlugin('pininfo'))
 ok('tidak mencuri $/exec', aliases.get('$') === '$' && aliases.get('exec') === '$')
